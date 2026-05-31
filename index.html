@@ -134,39 +134,50 @@ canvas{display:block}
 #lightbox .lb-count{min-width:60px;text-align:center}
 #lightbox .lb-cap{position:absolute;top:26px;left:28px;font-family:var(--mono);font-size:.75rem;letter-spacing:2px;color:var(--sand)}
 
-/* ---------- mobile / touch ---------- */
+/* ---------- mobile / touch controls ---------- */
 #touch{position:fixed;inset:0;z-index:12;pointer-events:none;display:none}
-#touch .pad{position:absolute;bottom:calc(24px + env(safe-area-inset-bottom));display:grid;gap:10px}
-#touch .pad.left{left:calc(20px + env(safe-area-inset-left));grid-template-columns:repeat(3,clamp(48px,15vw,60px));grid-template-rows:repeat(2,clamp(48px,15vw,60px));
-  grid-template-areas:". up ." "lf dn rt"}
-#touch button{pointer-events:auto;width:100%;height:100%;border-radius:16px;border:1px solid rgba(255,255,255,.25);
-  background:rgba(10,10,16,.5);backdrop-filter:blur(8px);color:#fff;font-size:1.3rem;user-select:none;touch-action:none}
-#touch .up{grid-area:up}#touch .dn{grid-area:dn}#touch .lf{grid-area:lf}#touch .rt{grid-area:rt}
+#touch .steer-pad,#touch .gas-pad{position:absolute;bottom:calc(26px + env(safe-area-inset-bottom));display:flex;gap:14px}
+#touch .steer-pad{left:calc(20px + env(safe-area-inset-left))}
+#touch .gas-pad{right:calc(20px + env(safe-area-inset-right));flex-direction:column-reverse}
+#touch button{pointer-events:auto;width:clamp(58px,17vw,74px);height:clamp(58px,17vw,74px);border-radius:50%;
+  border:1px solid rgba(255,255,255,.3);background:rgba(15,15,22,.55);backdrop-filter:blur(8px);color:#fff;
+  font-size:1.2rem;font-weight:700;font-family:var(--sans);user-select:none;touch-action:none;
+  box-shadow:0 6px 20px rgba(0,0,0,.4);transition:transform .08s,background .1s}
+#touch button:active{transform:scale(.92);background:rgba(124,92,255,.6)}
+#touch .up{background:rgba(25,160,120,.55);font-size:.95rem}
+#touch .up:active{background:rgba(25,200,150,.8)}
+#touch .dn{width:clamp(48px,14vw,60px);height:clamp(48px,14vw,60px);font-size:1.3rem}
 @media(hover:none) and (pointer:coarse){#touch{display:block}.hud-pill{display:none}}
 
 #muteBtn{position:fixed;right:22px;top:64px;z-index:10;width:40px;height:40px;border-radius:50%;cursor:pointer;
   background:rgba(10,10,16,.5);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:1rem;transition:.2s}
 #muteBtn:hover{border-color:var(--sand)}
 
+/* panel close button (mobile-friendly dismiss) */
+#panelClose{position:absolute;top:10px;right:12px;width:34px;height:34px;border-radius:50%;cursor:pointer;
+  border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-size:1.1rem;line-height:1;
+  display:none;align-items:center;justify-content:center;z-index:2}
+#panel.show #panelClose{display:flex}
+#panelClose:hover{background:rgba(255,255,255,.18)}
+
 /* phones: shrink HUD, keep panel & controls clear of each other */
 @media(max-width:640px){
   #hud{padding:12px 14px}
-  #hud .logo{font-size:.95rem}
-  #muteBtn{top:auto;bottom:calc(24px + env(safe-area-inset-bottom));right:16px}
-  #speedo{width:92px;height:92px;right:14px;bottom:calc(96px + env(safe-area-inset-bottom))}
-  #speedo .kmh{font-size:1.3rem}
-  #mini{width:104px;height:104px;left:auto;right:14px;bottom:14px;display:none}
-  #panel{right:50%;transform:translate(50%,40px);bottom:calc(150px + env(safe-area-inset-bottom));top:auto;
-    width:min(94vw,420px);max-height:46vh;padding:20px}
-  #panel.show{transform:translate(50%,0)}
-  #approach{bottom:calc(150px + env(safe-area-inset-bottom));font-size:.72rem}
+  #hud .logo{font-size:.92rem}
+  #muteBtn{top:auto;bottom:calc(120px + env(safe-area-inset-bottom));right:14px;width:44px;height:44px}
+  #speedo{width:78px;height:78px;right:14px;top:60px;bottom:auto}
+  #speedo .kmh{font-size:1.15rem}#speedo .unit,#speedo .gear{font-size:.5rem}
+  #mini{display:none}
+  /* detail panel slides up from the bottom as a sheet, above the controls */
+  #panel{left:0;right:0;bottom:0;top:auto;transform:translateY(100%);
+    width:100%;max-width:none;max-height:54vh;border-radius:22px 22px 0 0;padding:22px 20px 26px}
+  #panel.show{transform:translateY(0)}
+  #panelClose{width:38px;height:38px;font-size:1.2rem}
+  #approach{bottom:calc(120px + env(safe-area-inset-bottom));font-size:.72rem}
   #lightbox img{max-width:94vw;max-height:64vh}
+  #panel .gal{grid-template-columns:repeat(4,1fr)}
 }
-/* very short landscape phones */
-@media(max-height:480px){
-  #panel{max-height:60vh}
-  #touch .pad{bottom:10px}
-}
+@media(max-height:480px){#panel{max-height:74vh}#touch .steer-pad,#touch .gas-pad{bottom:10px}}
 </style>
 </head>
 <body>
@@ -219,11 +230,15 @@ canvas{display:block}
 </div>
 
 <div id="touch">
-  <div class="pad left">
-    <button class="up" data-k="up">▲</button>
-    <button class="lf" data-k="left">◀</button>
-    <button class="dn" data-k="down">▼</button>
-    <button class="rt" data-k="right">▶</button>
+  <!-- left: steering -->
+  <div class="steer-pad">
+    <button class="lf" data-k="left" aria-label="steer left">◀</button>
+    <button class="rt" data-k="right" aria-label="steer right">▶</button>
+  </div>
+  <!-- right: throttle / brake -->
+  <div class="gas-pad">
+    <button class="up" data-k="up" aria-label="accelerate">GO</button>
+    <button class="dn" data-k="down" aria-label="brake / reverse">⊘</button>
   </div>
 </div>
 
@@ -598,17 +613,30 @@ roadSeg(wp[0],wp[4]);roadSeg(wp[4],wp[3]);roadSeg(wp[3],wp[5]);roadSeg(wp[4],wp[
 roadSeg(wp[0],{x:BRIDGE_X-30,y:BRIDGE_Z});roadSeg({x:BRIDGE_X+30,y:BRIDGE_Z},wp[4]);
 ORDER.forEach((k,i)=>{const z=ZONES.find(zz=>zz.key===k);flag(z.pos[0]+8,z.pos[1]+8,z.color);});
 
-/* ---------- RIVER water surface (a long animated plane following the channel) ---------- */
-const water=new THREE.Mesh(new THREE.PlaneGeometry(RIVER_W*2.2,440,1,90),
-  new THREE.MeshStandardMaterial({color:0x2f7fb0,transparent:true,opacity:.82,roughness:.25,metalness:.2}));
+/* ---------- RIVER — wide riverbed trough + full water surface, no gaps ----------
+   Both planes are made much WIDER than the channel; the extra width tucks under
+   the banks (hidden), guaranteeing the water always reaches both shores even on
+   the river's curves. Water sits just below ground level so banks overlap it.   */
+const RIVER_VIS=RIVER_W+9;            // visual half-width (well past the carved channel)
+// dark riverbed trough sitting low, so nothing shows through under the water
+const bed=new THREE.Mesh(new THREE.PlaneGeometry(RIVER_VIS*2,470,1,1),
+  new THREE.MeshStandardMaterial({color:0x123b54,roughness:1}));
+bed.rotation.x=-Math.PI/2;
+{const p=bed.geometry.attributes.position;for(let i=0;i<p.count;i++){p.setX(i,p.getX(i)+riverCenterX(-p.getY(i)));}p.needsUpdate=true;}
+bed.position.set(0,WATER_Y-0.6,0);bed.receiveShadow=true;scene.add(bed);
+// the water surface
+const water=new THREE.Mesh(new THREE.PlaneGeometry(RIVER_VIS*2,470,8,180),
+  new THREE.MeshStandardMaterial({color:0x2a73a8,transparent:true,opacity:.9,roughness:.15,metalness:.35}));
 water.rotation.x=-Math.PI/2;
-{ // bend the water plane to follow riverCenterX(z)
-  const p=water.geometry.attributes.position;
-  for(let i=0;i<p.count;i++){const zz=p.getY(i); /* plane local Y maps to world Z */
-    p.setX(i,p.getX(i)+riverCenterX(-zz));}
+const waterBase=[];
+{ const p=water.geometry.attributes.position;
+  for(let i=0;i<p.count;i++){const zz=p.getY(i);
+    const nx=p.getX(i)+riverCenterX(-zz);p.setX(i,nx);
+    waterBase.push({x:nx,y:zz});}
   p.needsUpdate=true;water.geometry.computeVertexNormals();
 }
-water.position.set(0,WATER_Y,0);scene.add(water);
+water.position.set(0,-0.25,0);   // just under ground level so the banks overlap the edges
+water.renderOrder=1;scene.add(water);
 
 /* ---------- BRIDGE across the river (rideable deck at BRIDGE_DECK height) ---------- */
 (function bridge(){
@@ -1055,6 +1083,21 @@ function emitDust(x,y,z){
   s.material.opacity=0.5;
 }
 
+/* ---------- water splash particles ---------- */
+const splashTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');
+  const grad=g.createRadialGradient(32,32,0,32,32,32);grad.addColorStop(0,'rgba(220,240,255,.95)');grad.addColorStop(1,'rgba(180,220,255,0)');
+  g.fillStyle=grad;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);})();
+const splashes=[];
+for(let i=0;i<40;i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:splashTex,transparent:true,opacity:0,depthWrite:false}));
+  s.scale.setScalar(0.4);s.userData={life:0,vx:0,vy:0,vz:0};scene.add(s);splashes.push(s);}
+let splashIdx=0;
+function emitSplash(x,y,z){
+  const s=splashes[splashIdx++%splashes.length];
+  s.position.set(x+(rnd()-0.5),y,z+(rnd()-0.5));
+  s.userData.life=1;s.userData.vx=(rnd()-0.5)*0.3;s.userData.vy=0.12+rnd()*0.12;s.userData.vz=(rnd()-0.5)*0.3;
+  s.scale.setScalar(0.35);s.material.opacity=0.9;
+}
+
 /* ===================== STATE & INPUT ===================== */
 // spawn at BASE CAMP, facing the summit (uphill)
 const SPAWN=ZONES[0].pos;
@@ -1127,12 +1170,19 @@ renderer.domElement.addEventListener('pointerup',e=>{
 /* ===================== UI ===================== */
 const panel=document.getElementById('panel');
 const approach=document.getElementById('approach');
-let activeZone=null;
+let activeZone=null, dismissedZone=null;
 function setZone(z){
+  // if the user manually closed this zone's panel, don't reopen until they leave it
+  if(z && z===dismissedZone) return;
+  if(z!==dismissedZone) dismissedZone=null;       // left the dismissed zone → re-armed
   if(z===activeZone)return;activeZone=z;
   if(z){
-    panel.innerHTML=z.html+(z.key==='art'||z.key==='contact'?'':'<div class="hintline">// ride away to dismiss</div>');
+    panel.innerHTML='<button id="panelClose" aria-label="close">✕</button>'+z.html+
+      (z.key==='art'||z.key==='contact'?'':'<div class="hintline">// tap ✕ or ride away to dismiss</div>');
     panel.classList.add('show');approach.classList.remove('show');
+    panel.querySelector('#panelClose').addEventListener('click',()=>{
+      dismissedZone=z;activeZone=null;panel.classList.remove('show');
+    });
     if(z.key==='contact') wireFeedbackForm();
   }
   else panel.classList.remove('show');
@@ -1332,11 +1382,13 @@ function animate(){
       const dx=bike.position.x-c.x,dz=bike.position.z-c.z,dd=Math.hypot(dx,dz)||0.001;
       if(dd<c.r){const n=c.r/dd;bike.position.x=c.x+dx*n;bike.position.z=c.z+dz*n;speed*=-0.25;}
     }
-    // river barrier: cross via the bridge OR jump it — only blocks when on the ground
-    if(!airborne && !onBridge(bike.position.x,bike.position.z) && riverDepth(bike.position.x,bike.position.z)>0.5){
+    // river edge: splash + slow when you hit the water; bridge/jump still cross it
+    if(!airborne && !onBridge(bike.position.x,bike.position.z) && riverDepth(bike.position.x,bike.position.z)>0.4){
+      // throw up water spray while pushing in
+      if(Math.abs(speed)>0.04 && t%0.04<0.017){emitSplash(bike.position.x,0,bike.position.z);emitSplash(bike.position.x,0.1,bike.position.z);}
       const cxr=riverCenterX(bike.position.z);
-      bike.position.x += (bike.position.x>cxr?1:-1)*0.6;   // shove toward the near bank
-      speed*=-0.3;
+      bike.position.x += (bike.position.x>cxr?1:-1)*0.5;   // shove toward the near bank
+      speed*=-0.25;
     }
     bike.rotation.y=heading;
 
@@ -1414,6 +1466,22 @@ function animate(){
       s.scale.setScalar(0.5+(1-s.userData.life)*1.6);
       s.material.opacity=Math.max(0,s.userData.life*0.5);
     }
+  }
+  // water splash update (gravity arcs)
+  for(const s of splashes){
+    if(s.userData.life>0){
+      s.userData.life-=0.035;s.userData.vy-=0.012;
+      s.position.x+=s.userData.vx;s.position.y+=s.userData.vy;s.position.z+=s.userData.vz;
+      s.scale.setScalar(0.3+(1-s.userData.life)*0.5);
+      s.material.opacity=Math.max(0,s.userData.life*0.9);
+    }
+  }
+  // animate river waves
+  if(water.geometry){
+    const p=water.geometry.attributes.position;
+    for(let i=0;i<p.count;i++){const b=waterBase[i];
+      p.setZ(i, Math.sin(b.y*0.25+t*2.0)*0.1 + Math.cos(b.x*0.4+t*1.6)*0.07);}
+    p.needsUpdate=true;
   }
 
   // checkpoints
