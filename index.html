@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Harsha Rai · Adventure Ride Portfolio</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --accent:#7c5cff;--accent2:#19e3b1;--accent3:#ff5c8a;--sand:#e0a85c;
+  --mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#cfe8f5;font-family:var(--sans);color:#fff}
+canvas{display:block}
+#app{position:fixed;inset:0}
+/* cinematic vignette + warm color grade over the 3D view */
+#grade{position:fixed;inset:0;z-index:6;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 42%,transparent 52%,rgba(8,10,20,.42) 100%);
+  mix-blend-mode:multiply}
+#grade.hide{display:none}
+
+/* ---------- intro (dark, minimal) ---------- */
+#intro{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;transition:opacity .7s;
+  background:radial-gradient(ellipse at 50% 40%,#15151b 0%,#0a0a0e 80%)}
+#intro.hide{opacity:0;pointer-events:none}
+.intro-card{position:relative;z-index:2;text-align:center;padding:0 28px;max-width:560px}
+.intro-card .tag{display:inline-block;font-family:var(--mono);font-size:.72rem;letter-spacing:3px;text-transform:uppercase;
+  color:#8a8a94;border:1px solid rgba(255,255,255,.12);padding:7px 16px;border-radius:40px;margin-bottom:28px}
+.intro-card h1{font-size:clamp(2.6rem,9vw,5.6rem);font-weight:700;letter-spacing:-2px;line-height:1;color:#f2f2f4;white-space:nowrap}
+/* layered 3D extruded text effect */
+.intro-card h1.d3{color:#ece7df;
+  text-shadow:0 1px 0 #b6b0a4,0 2px 0 #a39d90,0 3px 0 #908a7e,0 4px 0 #7d776c,
+    0 5px 0 #6a655b,0 6px 1px rgba(0,0,0,.3),0 8px 14px rgba(0,0,0,.55)}
+.intro-card .desc{color:#9a9aa4;font-size:1.05rem;line-height:1.6;margin:22px auto 34px;max-width:400px}
+#startBtn{font-family:var(--sans);font-size:1.02rem;padding:16px 42px;border-radius:50px;cursor:pointer;font-weight:600;
+  background:transparent;color:#f2f2f4;border:1px solid rgba(255,255,255,.35);transition:.3s}
+#startBtn:hover{background:#f2f2f4;color:#15151b;transform:translateY(-2px)}
+.intro-card .keyhint{font-family:var(--mono);font-size:.74rem;color:#6a6a74;margin-top:24px}
+.intro-card .keyhint kbd{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:6px;padding:4px 8px;margin:0 1px}
+
+/* loader overlay */
+.loader{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#0a0a0e}
+.loader .bar{width:220px;height:4px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden}
+.loader .bar i{display:block;height:100%;width:30%;background:#c79a5e;border-radius:4px;animation:load 1s ease-in-out infinite}
+.loader span{font-family:var(--mono);font-size:.75rem;color:#6a6a74;letter-spacing:2px}
+@keyframes load{0%{margin-left:-30%}100%{margin-left:100%}}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;justify-content:space-between;align-items:flex-start;
+  padding:20px 26px;pointer-events:none}
+#hud .logo{font-weight:700;font-size:1.15rem;mix-blend-mode:difference;pointer-events:auto}
+#hud .logo small{display:block;font-family:var(--mono);font-size:.6rem;letter-spacing:2px;opacity:.7;font-weight:400}
+#hud .logo b{color:var(--sand)}
+.hud-pill{font-family:var(--mono);font-size:.7rem;letter-spacing:1px;background:rgba(10,10,16,.45);
+  backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);border-radius:30px;padding:9px 16px;color:#dfe;line-height:1.5}
+
+/* ---------- speedometer ---------- */
+#speedo{position:fixed;right:22px;bottom:22px;z-index:10;width:128px;height:128px;
+  display:grid;place-items:center;filter:drop-shadow(0 8px 24px rgba(0,0,0,.4))}
+#speedo svg{position:absolute;inset:0;transform:rotate(135deg)}
+#speedo .readout{position:relative;text-align:center}
+#speedo .kmh{font-family:var(--mono);font-size:1.9rem;font-weight:700;line-height:1;letter-spacing:-1px}
+#speedo .unit{font-family:var(--mono);font-size:.6rem;color:#9a9aa8;letter-spacing:2px;margin-top:3px}
+#speedo .gear{font-family:var(--mono);font-size:.6rem;color:var(--accent2);margin-top:5px;letter-spacing:1px}
+
+/* ---------- minimap ---------- */
+#mini{position:fixed;left:22px;bottom:22px;z-index:10;width:160px;height:160px;border-radius:18px;
+  background:rgba(10,10,16,.55);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.12);
+  padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+#mini canvas{width:100%;height:100%;display:block;border-radius:12px}
+#mini .lbl{position:absolute;top:-9px;left:14px;font-family:var(--mono);font-size:.6rem;letter-spacing:2px;
+  background:var(--sand);color:#1a1206;padding:3px 8px;border-radius:20px}
+
+/* ---------- info panel ---------- */
+#panel{position:fixed;right:22px;top:50%;transform:translateY(-50%) translateX(40px);z-index:15;
+  width:min(430px,90vw);max-height:78vh;overflow:auto;background:rgba(12,12,20,.82);backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:32px;opacity:0;pointer-events:none;
+  transition:.5s cubic-bezier(.16,1,.3,1);box-shadow:0 30px 80px rgba(0,0,0,.5)}
+#panel.show{opacity:1;transform:translateY(-50%) translateX(0);pointer-events:auto}
+#panel::-webkit-scrollbar{width:6px}#panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:6px}
+#panel .ptag{font-family:var(--mono);font-size:.72rem;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+#panel h2{font-size:1.7rem;font-weight:700;letter-spacing:-.5px;margin-bottom:16px;line-height:1.1}
+#panel p{color:#c7c7d1;font-size:.93rem;margin-bottom:11px}
+#panel b{color:#fff;font-weight:600}
+#panel ul{list-style:none;display:flex;flex-direction:column;gap:9px;margin:8px 0}
+#panel li{padding-left:18px;position:relative;color:#bdbdc7;font-size:.88rem}
+#panel li::before{content:'▹';position:absolute;left:0;color:var(--accent)}
+#panel .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+#panel .chips span{font-family:var(--mono);font-size:.68rem;padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:20px;color:#9a9aa8}
+#panel .links{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px;font-family:var(--mono);font-size:.82rem}
+#panel .links a{color:var(--accent2);text-decoration:none;border-bottom:1px solid transparent;transition:.2s}
+#panel .links a:hover{border-color:var(--accent2)}
+#panel .hintline{font-family:var(--mono);font-size:.68rem;color:#6a6a78;margin-top:20px;letter-spacing:1px}
+#panel .fbform{display:flex;flex-direction:column;gap:10px;margin:6px 0 16px}
+#panel .fbform input,#panel .fbform textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);
+  border-radius:12px;padding:11px 13px;color:#fff;font-family:var(--sans);font-size:.9rem;resize:none;outline:none;transition:.2s}
+#panel .fbform input:focus,#panel .fbform textarea:focus{border-color:#4ea8ff;background:rgba(255,255,255,.09)}
+#panel .fbform input::placeholder,#panel .fbform textarea::placeholder{color:#7a7a86}
+#panel .fbform button{background:#4ea8ff;color:#04121f;border:none;border-radius:12px;padding:12px;font-weight:600;
+  font-family:var(--sans);font-size:.92rem;cursor:pointer;transition:.2s}
+#panel .fbform button:hover{background:#6fbcff;transform:translateY(-1px)}
+#panel .fbform button:disabled{opacity:.5;cursor:default;transform:none}
+#panel .fbnote{font-family:var(--mono);font-size:.74rem;text-align:center;min-height:1em}
+#panel .fbnote.ok{color:#19e3b1}#panel .fbnote.err{color:#ff7a7a}
+#panel .fbsuccess{text-align:center;padding:18px;border:1px solid rgba(25,227,177,.4);border-radius:14px;
+  background:rgba(25,227,177,.08);color:#19e3b1;font-weight:600;font-size:1.05rem;display:flex;flex-direction:column;gap:6px}
+#panel .fbsuccess span{color:#bdbdc7;font-weight:400;font-size:.85rem}
+#panel .gal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+#panel .gal img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,.12);transition:.25s}
+#panel .gal img:hover{transform:scale(1.05);border-color:var(--sand)}
+
+/* approaching badge */
+#approach{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);z-index:14;
+  font-family:var(--mono);font-size:.8rem;letter-spacing:1px;padding:12px 22px;border-radius:40px;
+  background:rgba(10,10,16,.6);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.15);
+  opacity:0;transition:.35s;pointer-events:none;white-space:nowrap}
+#approach.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- lightbox ---------- */
+#lightbox{position:fixed;inset:0;z-index:40;background:rgba(6,7,12,.92);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:.35s;flex-direction:column}
+#lightbox.show{opacity:1;pointer-events:auto}
+#lightbox img{max-width:88vw;max-height:78vh;border-radius:14px;box-shadow:0 30px 90px rgba(0,0,0,.7);
+  border:1px solid rgba(255,255,255,.12)}
+#lightbox .lb-bar{display:flex;align-items:center;gap:26px;margin-top:20px;font-family:var(--mono);font-size:.85rem;color:#cfcfda}
+#lightbox button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#fff;
+  width:46px;height:46px;border-radius:50%;font-size:1.2rem;cursor:pointer;transition:.2s}
+#lightbox button:hover{background:var(--sand);color:#1a1206;border-color:transparent}
+#lightbox .lb-close{position:absolute;top:24px;right:28px;width:46px;height:46px}
+#lightbox .lb-count{min-width:60px;text-align:center}
+#lightbox .lb-cap{position:absolute;top:26px;left:28px;font-family:var(--mono);font-size:.75rem;letter-spacing:2px;color:var(--sand)}
+
+/* ---------- mobile / touch ---------- */
+#touch{position:fixed;inset:0;z-index:12;pointer-events:none;display:none}
+#touch .pad{position:absolute;bottom:calc(24px + env(safe-area-inset-bottom));display:grid;gap:10px}
+#touch .pad.left{left:calc(20px + env(safe-area-inset-left));grid-template-columns:repeat(3,clamp(48px,15vw,60px));grid-template-rows:repeat(2,clamp(48px,15vw,60px));
+  grid-template-areas:". up ." "lf dn rt"}
+#touch button{pointer-events:auto;width:100%;height:100%;border-radius:16px;border:1px solid rgba(255,255,255,.25);
+  background:rgba(10,10,16,.5);backdrop-filter:blur(8px);color:#fff;font-size:1.3rem;user-select:none;touch-action:none}
+#touch .up{grid-area:up}#touch .dn{grid-area:dn}#touch .lf{grid-area:lf}#touch .rt{grid-area:rt}
+@media(hover:none) and (pointer:coarse){#touch{display:block}.hud-pill{display:none}}
+
+#muteBtn{position:fixed;right:22px;top:64px;z-index:10;width:40px;height:40px;border-radius:50%;cursor:pointer;
+  background:rgba(10,10,16,.5);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:1rem;transition:.2s}
+#muteBtn:hover{border-color:var(--sand)}
+
+/* phones: shrink HUD, keep panel & controls clear of each other */
+@media(max-width:640px){
+  #hud{padding:12px 14px}
+  #hud .logo{font-size:.95rem}
+  #muteBtn{top:auto;bottom:calc(24px + env(safe-area-inset-bottom));right:16px}
+  #speedo{width:92px;height:92px;right:14px;bottom:calc(96px + env(safe-area-inset-bottom))}
+  #speedo .kmh{font-size:1.3rem}
+  #mini{width:104px;height:104px;left:auto;right:14px;bottom:14px;display:none}
+  #panel{right:50%;transform:translate(50%,40px);bottom:calc(150px + env(safe-area-inset-bottom));top:auto;
+    width:min(94vw,420px);max-height:46vh;padding:20px}
+  #panel.show{transform:translate(50%,0)}
+  #approach{bottom:calc(150px + env(safe-area-inset-bottom));font-size:.72rem}
+  #lightbox img{max-width:94vw;max-height:64vh}
+}
+/* very short landscape phones */
+@media(max-height:480px){
+  #panel{max-height:60vh}
+  #touch .pad{bottom:10px}
+}
+</style>
+</head>
+<body>
+
+<div id="intro">
+  <div class="intro-card">
+    <div class="tag">Interactive Ride-Through Portfolio</div>
+    <h1 class="d3">Harsha&nbsp;Rai</h1>
+    <p class="desc">AI Engineer. Hop on the bike and ride through my world to explore.</p>
+    <button id="startBtn">Start the Ride →</button>
+    <div class="keyhint">drive with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · drag to look around</div>
+  </div>
+
+  <div class="loader" id="loader"><div class="bar"><i></i></div><span>LOADING THE WORLD…</span></div>
+</div>
+
+<div id="app"></div>
+<div id="grade"></div>
+
+<div id="hud">
+  <div class="logo">HR<b>.</b><small>OFF-ROAD ADVENTURE PORTFOLIO</small></div>
+  <div class="hud-pill">W A S D / ARROWS · CLIMB TO THE SUMMIT<br>DRAG TO LOOK · SCROLL TO ZOOM</div>
+</div>
+
+<button id="muteBtn" title="toggle engine sound">🔊</button>
+
+<div id="speedo">
+  <svg viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="8" stroke-dasharray="245 327" stroke-linecap="round"/>
+    <circle id="speedArc" cx="60" cy="60" r="52" fill="none" stroke="url(#sg)" stroke-width="8" stroke-dasharray="0 327" stroke-linecap="round"/>
+    <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#19e3b1"/><stop offset="1" stop-color="#e0a85c"/></linearGradient></defs>
+  </svg>
+  <div class="readout"><div class="kmh" id="kmh">0</div><div class="unit">KM / H</div><div class="gear" id="gear">NEUTRAL</div></div>
+</div>
+
+<div id="mini"><div class="lbl">TRAIL MAP</div><canvas id="miniCv" width="288" height="288"></canvas></div>
+
+<div id="panel"></div>
+<div id="approach"></div>
+
+<div id="lightbox">
+  <div class="lb-cap">SKETCHBOOK</div>
+  <button class="lb-close" id="lbClose">✕</button>
+  <img id="lbImg" alt="drawing" />
+  <div class="lb-bar">
+    <button id="lbPrev">‹</button>
+    <span class="lb-count" id="lbCount">1 / 16</span>
+    <button id="lbNext">›</button>
+  </div>
+</div>
+
+<div id="touch">
+  <div class="pad left">
+    <button class="up" data-k="up">▲</button>
+    <button class="lf" data-k="left">◀</button>
+    <button class="dn" data-k="down">▼</button>
+    <button class="rt" data-k="right">▶</button>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+// GLTFLoader is imported lazily (only if a bike model URL is set) to keep load fast
+
+/* ===================== DATA ===================== */
+// Feedback form → email. Sign up free at https://formspree.io, create a form
+// with your email (harsharaim@gmail.com), and paste its endpoint URL below.
+const FORMSPREE_ENDPOINT='https://formspree.io/f/mredvrwo';
+
+const BASE='https://raw.githubusercontent.com/harsharaim/PortFolio/main/Images/Drawing/';
+// all 16 drawings live in the repo as JPG
+const DRAWINGS=Array.from({length:16},(_,i)=>BASE+(i+1)+'.jpg');
+const DRAWINGS_FALLBACK={ 13:'drawings/local-1.jpg', 14:'drawings/local-2.jpg', 15:'drawings/local-3.jpg' };
+
+const fbAttr=i=>DRAWINGS_FALLBACK[i]?` onerror="this.onerror=null;this.src='${DRAWINGS_FALLBACK[i]}'"`:'';
+const galleryThumbs=DRAWINGS.map((u,i)=>`<img src="${u}" loading="lazy" onclick="openLightbox(${i})"${fbAttr(i)} alt="sketch ${i+1}">`).join('');
+
+
+// positioned as an ASCENDING SPIRAL up the mountain — radius shrinks as you climb,
+// Contact sits at the very summit (0,0). Heights come from the terrain.
+const ZONES = [
+  { key:'about', title:'ABOUT', color:0x7c5cff, pos:[-120,0],
+    html:`<div class="ptag" style="color:#7c5cff">01 — About</div>
+      <h2>AI Engineer</h2>
+      <p>I'm <b>Harsha Rai</b>, an Associate AI Engineer at Ecolab Digital Center, Bangalore — building <b>LLM agents, RAG systems and MCP-powered automation</b> on the Databricks stack.</p>
+      <p>I work end-to-end with Python, SQL, Claude Code, RAG, Model Context Protocol and multi-agent orchestration — wiring LLMs into real workflows with retrieval, tool-use and observability built in.</p>
+      <div class="chips"><span>B.E. CSE · 9.0 CGPA</span><span>Kerala, India</span><span>Open to roles</span></div>` },
+
+  { key:'skills', title:'SKILLS', color:0x19e3b1, pos:[-70,-70],
+    html:`<div class="ptag" style="color:#19e3b1">02 — Toolkit</div>
+      <h2>What I build with</h2>
+      <p>AI &amp; LLM engineering first, backed by a full data &amp; ML stack.</p>
+      <div class="chips">
+        <span>LLM Agents</span><span>RAG</span><span>Model Context Protocol</span><span>Claude Code</span><span>Prompt Engineering</span><span>Vector Search</span><span>Python</span><span>Databricks</span><span>SQL</span><span>TensorFlow</span><span>Keras</span><span>BERT</span><span>ResNet50</span><span>MediaPipe</span><span>Azure</span><span>Kafka</span><span>Redis</span><span>Elastic</span></div>` },
+
+  { key:'exp', title:'EXPERIENCE', color:0xffb020, pos:[-60,80],
+    html:`<div class="ptag" style="color:#ffb020">03 — Experience</div>
+      <h2>Ecolab Digital Center</h2>
+      <p style="color:#ffb020;font-family:var(--mono);font-size:.8rem">Associate AI Engineer · Sep 2024 — Present</p>
+      <ul>
+        <li>Built LLM agents &amp; RAG pipelines on Databricks with Python, SQL &amp; Claude Code — vector search + tool-use for autonomous automation.</li>
+        <li>Designed Model Context Protocol (MCP) servers connecting LLMs to enterprise data for secure, real-time retrieval.</li>
+        <li>Engineered AI-driven anomaly detection over MuleSoft logs with auto ServiceNow incidents &amp; Elastic dashboards.</li>
+      </ul>
+      <p style="color:#ffb020;font-family:var(--mono);font-size:.8rem;margin-top:14px">Trainee SE → Intern</p>
+      <ul>
+        <li>REST APIs handling 5,000+ daily requests at 99.9% uptime.</li>
+        <li>Migrated legacy EDI workflows to APIs — 100,000+ transactions/day.</li>
+        <li>TorSecure: React + Tailwind + Firebase site on Cloudflare.</li>
+      </ul>` },
+
+  { key:'work', title:'PROJECTS', color:0xff5c8a, pos:[110,-70],
+    html:`<div class="ptag" style="color:#ff5c8a">04 — Selected Work</div>
+      <h2>Projects &amp; Research</h2>
+      <p><b>Enterprise RAG Assistant</b> — Databricks + vector store + Claude reasoning with citation-grounded answers.</p>
+      <p><b>MCP Tool-Use Agent</b> — multi-step LLM agent that plans, calls tools &amp; acts through Model Context Protocol servers.</p>
+      <p><b>CyberLens</b> — multimodal cyberbullying detection for video. BERT 92% + ResNet50 95%, MediaPipe gestures, keyframe hashing.</p>
+      <p><b>IEEE Publication</b> — Multimodal Cyberbullying Detection in Videos, Nov 2024.</p>
+      <div class="chips"><span>RAG</span><span>MCP</span><span>Claude Code</span><span>TensorFlow</span><span>BERT</span></div>` },
+
+  { key:'art', title:'ART GALLERY', color:0xffd166, pos:[120,60],
+    html:`<div class="ptag" style="color:#ffd166">05 — Sketchbook</div>
+      <h2>Art Gallery</h2>
+      <p>Beyond engineering, I draw. A collection of my pencil work &amp; sketches — ride through the open-air gallery, or tap any piece to view it full-size.</p>
+      <div class="gal">${galleryThumbs}</div>
+      <div class="hintline">// click a sketch to enlarge · ← → to browse</div>` },
+
+  { key:'contact', title:'CONTACT', color:0x4ea8ff, pos:[10,120],
+    html:`<div class="ptag" style="color:#4ea8ff">06 — Contact</div>
+      <h2>Let's build something</h2>
+      <p>Open to AI / ML engineering opportunities. Drop me a message below — it lands straight in my inbox.</p>
+      <form class="fbform" action="${FORMSPREE_ENDPOINT}" method="POST">
+        <input type="text" name="name" placeholder="your name" required>
+        <input type="email" name="email" placeholder="your email" required>
+        <textarea name="message" rows="3" placeholder="your message or feedback…" required></textarea>
+        <button type="submit">Send message →</button>
+        <div class="fbnote"></div>
+      </form>
+      <div class="links">
+        <a href="mailto:harsharaim@gmail.com">harsharaim@gmail.com</a>
+        <a href="https://linkedin.com/in/harsha-rai-" target="_blank" rel="noopener">LinkedIn ↗</a>
+        <a href="https://github.com/harsharaim" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>` }
+];
+
+/* ===================== VALLEY TERRAIN (gentle & flat) ===================== */
+const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
+const RMAX=200;                 // playable footprint radius
+// a RIVER runs across the map as a sine-curved channel; the bridge crosses it.
+function riverCenterX(z){ return 40+Math.sin(z*0.018)*26; }   // x of river centre at given z
+const RIVER_W=11;               // half-width of the water channel
+function riverDepth(x,z){       // 0 on banks → 1 mid-channel
+  const d=Math.abs(x-riverCenterX(z));
+  return d<RIVER_W?smooth(1-d/RIVER_W):0;
+}
+function baseH(x,z){
+  // gently rolling ground, never steep
+  let h = Math.sin(x*0.03)*Math.cos(z*0.034)*1.6
+        + Math.sin((x+z)*0.05)*0.9
+        + Math.cos(x*0.07-z*0.04)*0.5;
+  // very soft rise toward the far rim so the backdrop mountains feel grounded
+  const r=Math.hypot(x,z);
+  h+=smooth((r-150)/120)*10;
+  // carve the river channel below ground level
+  h-=riverDepth(x,z)*2.6;
+  return h;
+}
+// flat clearings at each checkpoint so they're easy to park on
+const FLAT=ZONES.map(z=>({x:z.pos[0],y:z.pos[1],r:z.key==='art'?32:15,lvl:baseH(z.pos[0],z.pos[1])}));
+function terrainH(x,z){
+  let h=baseH(x,z);
+  for(const f of FLAT){
+    const d=Math.hypot(x-f.x,z-f.y);
+    if(d<f.r){const t=smooth(d/f.r);h=h*t+f.lvl*(1-t);}
+  }
+  return h;
+}
+// BRIDGE deck: a flat rideable span across the river at z≈BRIDGE_Z
+const BRIDGE_Z=-20, BRIDGE_X=riverCenterX(BRIDGE_Z), BRIDGE_DECK=0.5, BRIDGE_HALF_X=RIVER_W*1.3, BRIDGE_HALF_Z=3.4;
+function onBridge(x,z){ return Math.abs(x-BRIDGE_X)<BRIDGE_HALF_X && Math.abs(z-BRIDGE_Z)<BRIDGE_HALF_Z; }
+// ramps are filled in later; declared here so groundHeightAt can safely read it
+const ramps=[];
+function rampHeightAt(x,z){
+  let best=null;
+  for(const r of ramps){const rx=x-r.bx,rz=z-r.bz;const along=rx*r.dx+rz*r.dz;const side=Math.abs(rx*r.dz-rz*r.dx);
+    if(along>=0&&along<=r.L&&side<r.W/2){const h=r.baseGy+r.H*(along/r.L);if(best===null||h>best)best=h;}}
+  return best;
+}
+// the height the bike rides on: ramps > bridge deck > terrain
+function groundHeightAt(x,z){
+  const rh=rampHeightAt(x,z);
+  if(rh!==null) return rh;
+  return onBridge(x,z)?BRIDGE_DECK:terrainH(x,z);
+}
+const WATER_Y=-2.2;             // water surface height
+
+/* ===================== SCENE ===================== */
+const app=document.getElementById('app');
+const scene=new THREE.Scene();
+scene.fog=new THREE.FogExp2(0xd8e4ec,0.0034);
+
+const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,1200);
+camera.position.set(0,11,-16);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.15;
+app.appendChild(renderer.domElement);
+const loader=new THREE.TextureLoader();
+loader.setCrossOrigin('anonymous');
+
+/* sky dome with sun glow */
+const SUNDIR=new THREE.Vector3(0.55,0.5,0.4).normalize();
+const sky=new THREE.Mesh(new THREE.SphereGeometry(640,48,24),new THREE.ShaderMaterial({
+  side:THREE.BackSide,
+  uniforms:{
+    top:{value:new THREE.Color(0x2f6fb0)},mid:{value:new THREE.Color(0xa9cee6)},bot:{value:new THREE.Color(0xeef0e6)},
+    sunDir:{value:SUNDIR},sunCol:{value:new THREE.Color(0xfff3d0)}
+  },
+  vertexShader:`varying vec3 vp;void main(){vp=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  fragmentShader:`varying vec3 vp;uniform vec3 top;uniform vec3 mid;uniform vec3 bot;uniform vec3 sunDir;uniform vec3 sunCol;
+    void main(){vec3 d=normalize(vp);float h=d.y;
+      vec3 c=h>0.0?mix(mid,top,pow(h,0.5)):mix(mid,bot,clamp(-h*3.0,0.0,1.0));
+      float s=max(dot(d,normalize(sunDir)),0.0);
+      c+=sunCol*pow(s,180.0)*1.2;            // sun disc
+      c+=sunCol*pow(s,7.0)*0.35;             // halo
+      gl_FragColor=vec4(c,1.0);}`
+}));
+scene.add(sky);
+
+/* PBR environment: bake the sky into an env map so metals/paint get real reflections */
+(function bakeEnv(){
+  const pmrem=new THREE.PMREMGenerator(renderer);pmrem.compileEquirectangularShader();
+  // render the sky shader into a small scene for the PMREM source
+  const envScene=new THREE.Scene();
+  const s2=sky.clone();s2.scale.set(-1,1,1);envScene.add(s2);
+  const rt=pmrem.fromScene(envScene,0,0.1,1000);
+  scene.environment=rt.texture;
+  pmrem.dispose();
+})();
+
+/* lights */
+scene.add(new THREE.HemisphereLight(0xdcebff,0x6b5e44,0.75));
+const sun=new THREE.DirectionalLight(0xfff1d4,2.5);
+sun.position.copy(SUNDIR).multiplyScalar(160);
+sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+const S=160,scam=sun.shadow.camera;
+scam.left=-S;scam.right=S;scam.top=S;scam.bottom=-S;scam.near=1;scam.far=420;sun.shadow.bias=-0.0004;
+sun.shadow.normalBias=0.4;
+scene.add(sun);
+/* subtle cool fill from opposite side */
+const fill=new THREE.DirectionalLight(0xbcd4ff,0.4);fill.position.set(-80,40,-60);scene.add(fill);
+
+/* ---------- off-road terrain mesh (displaced + vertex colored) ---------- */
+const GEO=new THREE.PlaneGeometry(400,400,140,140);
+GEO.rotateX(-Math.PI/2);
+const pos=GEO.attributes.position;
+const cGrass=new THREE.Color(0x5f8a45);
+const cGrass2=new THREE.Color(0x7ba35a);
+const cSand=new THREE.Color(0xc7ad7e);   // river bank sand
+const cRock=new THREE.Color(0x8a8278);
+const colors=[];const tmp=new THREE.Color();
+const vn=(x,z)=>{const s=Math.sin(x*12.9898+z*78.233)*43758.5453;return s-Math.floor(s);};
+for(let i=0;i<pos.count;i++){
+  const x=pos.getX(i),z=pos.getZ(i);
+  const h=terrainH(x,z);pos.setY(i,h);
+  const mott=vn(Math.floor(x*0.5),Math.floor(z*0.5));
+  tmp.copy(cGrass).lerp(cGrass2,mott);
+  // sandy banks near the river channel
+  const rd=riverDepth(x,z);
+  if(rd>0) tmp.lerp(cSand,smooth(rd*1.4));
+  // a little rock on the far outer rise
+  const r=Math.hypot(x,z);
+  if(r>160) tmp.lerp(cRock,smooth((r-160)/40)*0.6);
+  colors.push(tmp.r,tmp.g,tmp.b);
+}
+GEO.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+GEO.computeVertexNormals();
+const terrain=new THREE.Mesh(GEO,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.96,metalness:0}));
+terrain.receiveShadow=true;scene.add(terrain);
+
+/* deterministic rng */
+let seed=7;const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280;};
+
+/* snow mountains backdrop — atmospheric, layered, irregular */
+const haze=new THREE.Color(0xb9cddc); // distant air color to blend toward
+function mountain(x,z,h,r,dist){
+  const g=new THREE.Group();
+  // distance fade: blend rock & snow toward sky haze
+  const fade=Math.min(0.8,Math.max(0,(dist-180)/180));
+  const rockCol=new THREE.Color(0x5d5a64).lerp(haze,fade);
+  const snowCol=new THREE.Color(0xf4f9ff).lerp(haze,fade*0.7);
+  const seg=6+Math.floor(rnd()*3);
+  const rockGeo=new THREE.ConeGeometry(r,h,seg);
+  // jitter base verts for irregular silhouette
+  const p=rockGeo.attributes.position;
+  for(let i=0;i<p.count;i++){if(p.getY(i)<h*0.2){p.setX(i,p.getX(i)*(0.8+rnd()*0.5));p.setZ(i,p.getZ(i)*(0.8+rnd()*0.5));}}
+  rockGeo.computeVertexNormals();
+  const rock=new THREE.Mesh(rockGeo,new THREE.MeshStandardMaterial({color:rockCol,roughness:1,flatShading:true}));
+  rock.position.y=h/2;rock.castShadow=dist<200;g.add(rock);
+  const cap=new THREE.Mesh(new THREE.ConeGeometry(r*0.52,h*0.4,seg),
+    new THREE.MeshStandardMaterial({color:snowCol,roughness:.6,flatShading:true}));
+  cap.position.y=h*0.8;g.add(cap);
+  g.position.set(x,-2,z);g.rotation.y=rnd()*6.28;scene.add(g);
+}
+// three rings: near, mid, far (far ones taller & hazier)
+for(let i=0;i<30;i++){const a=i/30*6.28+rnd()*0.12;const r=185+rnd()*25;const x=Math.cos(a)*r,z=Math.sin(a)*r;mountain(x,z,42+rnd()*30,22+rnd()*14,r);}
+for(let i=0;i<28;i++){const a=i/28*6.28+0.1;const r=240+rnd()*40;const x=Math.cos(a)*r,z=Math.sin(a)*r;mountain(x,z,70+rnd()*55,32+rnd()*22,r);}
+for(let i=0;i<24;i++){const a=i/24*6.28+0.22;const r=320+rnd()*60;const x=Math.cos(a)*r,z=Math.sin(a)*r;mountain(x,z,100+rnd()*80,45+rnd()*30,r);}
+
+/* pines + rocks (sit on terrain) */
+// solid colliders the bike can't pass through: {x,z,r}
+const colliders=[];
+const addCollider=(x,z,r)=>colliders.push({x,z,r});
+function pine(x,z){
+  const g=new THREE.Group();
+  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.45,2.2,7),
+    new THREE.MeshStandardMaterial({color:0x6b4a2e,roughness:1}));
+  trunk.position.y=1.1;trunk.castShadow=true;g.add(trunk);
+  const cm=new THREE.MeshStandardMaterial({color:0x2f7d4f,roughness:1,flatShading:true});
+  for(let i=0;i<3;i++){
+    const c=new THREE.Mesh(new THREE.ConeGeometry(2.2-i*0.55,2.6,8),cm);
+    c.position.y=2.6+i*1.6;c.castShadow=true;g.add(c);
+  }
+  g.position.set(x,terrainH(x,z),z);g.scale.setScalar(0.8+rnd()*0.8);scene.add(g);
+  addCollider(x,z,1.6);                 // trunk collision
+}
+function rock(x,z){
+  const m=new THREE.Mesh(new THREE.DodecahedronGeometry(1.1+rnd()*0.9,0),
+    new THREE.MeshStandardMaterial({color:0x8a8590,roughness:1,flatShading:true}));
+  m.position.set(x,terrainH(x,z)+0.6,z);m.rotation.set(rnd()*3,rnd()*3,rnd()*3);
+  m.castShadow=true;m.receiveShadow=true;scene.add(m);
+  addCollider(x,z,2.0);
+}
+/* low shrubs / bushes */
+function bush(x,z){
+  const g=new THREE.Group();const m=new THREE.MeshStandardMaterial({color:0x4e7a39,roughness:1,flatShading:true});
+  for(let i=0;i<3;i++){const b=new THREE.Mesh(new THREE.IcosahedronGeometry(0.6+rnd()*0.4,0),m);
+    b.position.set((rnd()-0.5)*0.9,0.4+rnd()*0.3,(rnd()-0.5)*0.9);b.castShadow=true;g.add(b);}
+  g.position.set(x,terrainH(x,z),z);g.scale.setScalar(0.7+rnd()*0.7);scene.add(g);
+}
+/* boulder cluster (non-colliding scenery, smaller) */
+function boulders(x,z){
+  const g=new THREE.Group();const m=new THREE.MeshStandardMaterial({color:0x7d7a82,roughness:1,flatShading:true});
+  for(let i=0;i<4;i++){const b=new THREE.Mesh(new THREE.DodecahedronGeometry(0.5+rnd()*0.7,0),m);
+    b.position.set((rnd()-0.5)*2.2,0.3+rnd()*0.4,(rnd()-0.5)*2.2);b.rotation.set(rnd()*3,rnd()*3,rnd()*3);b.castShadow=true;b.receiveShadow=true;g.add(b);}
+  g.position.set(x,terrainH(x,z),z);scene.add(g);
+}
+/* grass tufts for ground detail */
+function tuft(x,z){
+  const m=new THREE.Mesh(new THREE.ConeGeometry(0.18,0.7,4),new THREE.MeshStandardMaterial({color:0x6f9a4a,roughness:1,flatShading:true}));
+  m.position.set(x,terrainH(x,z)+0.3,z);m.rotation.y=rnd()*3;scene.add(m);
+}
+for(let i=0;i<300;i++){
+  const a=rnd()*6.28,r=16+rnd()*(RMAX-20);
+  const x=Math.cos(a)*r,z=Math.sin(a)*r;
+  if(ZONES.some(zz=>Math.hypot(x-zz.pos[0],z-zz.pos[1])<(zz.key==='art'?38:11)))continue;
+  const elev=terrainH(x,z);
+  const k=rnd();
+  // elevation zoning: green & trees low, shrubs mid, rock/scree high
+  if(elev<26){
+    if(k>0.6) pine(x,z); else if(k>0.35) bush(x,z); else if(k>0.18) tuft(x,z); else boulders(x,z);
+  }else if(elev<34){
+    if(k>0.7) pine(x,z); else if(k>0.4) bush(x,z); else if(k>0.2) rock(x,z); else tuft(x,z);
+  }else{
+    if(k>0.55) rock(x,z); else if(k>0.3) boulders(x,z);
+  }
+}
+
+/* ---- base-camp tent + campfire so the start feels like a real trailhead ---- */
+(function baseCamp(){
+  const z0=ZONES.find(z=>z.key==='about');const cx=z0.pos[0],cz=z0.pos[1],gy=terrainH(cx,cz);
+  // tent
+  const tent=new THREE.Mesh(new THREE.ConeGeometry(2.4,2.6,4),new THREE.MeshStandardMaterial({color:0xd0613b,roughness:.8,flatShading:true}));
+  tent.rotation.y=Math.PI/4;tent.position.set(cx+8,gy+1.3,cz-6);tent.castShadow=true;scene.add(tent);
+  // campfire ring + glow
+  const fire=new THREE.PointLight(0xff7a2c,4,18);fire.position.set(cx+4,gy+1,cz-4);scene.add(fire);
+  const logs=new THREE.Mesh(new THREE.CylinderGeometry(0.9,0.9,0.3,8),new THREE.MeshStandardMaterial({color:0x4a3320,roughness:1}));
+  logs.position.set(cx+4,gy+0.15,cz-4);scene.add(logs);
+  z0._fire=fire;
+})();
+
+/* prayer-flag pole marker */
+function flag(x,z,col){
+  const g=new THREE.Group();
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,2.6,6),new THREE.MeshStandardMaterial({color:0x3a3a40}));
+  pole.position.y=1.3;pole.castShadow=true;g.add(pole);
+  for(let i=0;i<3;i++){const fl=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.4),
+    new THREE.MeshStandardMaterial({color:[0xff5c5c,0x19e3b1,0xffd166][i],side:THREE.DoubleSide}));
+    fl.position.set(0.4,2.2-i*0.5,0);g.add(fl);}
+  g.position.set(x,terrainH(x,z),z);scene.add(g);
+}
+/* ---- glowing SWITCHBACK TRAIL: a path that climbs from base camp to the summit
+        threading each checkpoint in order, drawn as dashed glowing markers ---- */
+const ORDER=['about','skills','exp','work','art','contact'];
+const wp=ORDER.map(k=>{const z=ZONES.find(zz=>zz.key===k);return new THREE.Vector2(z.pos[0],z.pos[1]);});
+/* ---------- ROAD network: dirt road segments connecting every checkpoint ---------- */
+const roadMat=new THREE.MeshStandardMaterial({color:0x6b5a44,roughness:1});
+const roadEdge=new THREE.MeshStandardMaterial({color:0xc9b27e,roughness:1});
+function roadSeg(a,b){
+  const dx=b.x-a.x, dz=b.y-a.y, len=Math.hypot(dx,dz), ang=Math.atan2(dx,dz);
+  const steps=Math.ceil(len/4);
+  for(let i=0;i<=steps;i++){
+    const tt=i/steps, x=a.x+dx*tt, z=a.y+dz*tt;
+    if(riverDepth(x,z)>0.15 && !onBridge(x,z)) continue;   // gap at the river except on the bridge
+    const tile=new THREE.Mesh(new THREE.PlaneGeometry(6,4.4),roadMat);
+    tile.rotation.x=-Math.PI/2;tile.rotation.z=-ang;tile.position.set(x,groundHeightAt(x,z)+0.06,z);
+    tile.receiveShadow=true;scene.add(tile);
+  }
+}
+// approach roads that funnel onto the bridge from both banks
+roadSeg({x:BRIDGE_X-40,y:BRIDGE_Z},{x:BRIDGE_X+40,y:BRIDGE_Z});
+// connect the stops in order, plus a couple of cross links so it feels like a village
+roadSeg(wp[0],wp[1]);roadSeg(wp[1],wp[2]);roadSeg(wp[2],wp[5]);
+roadSeg(wp[0],wp[4]);roadSeg(wp[4],wp[3]);roadSeg(wp[3],wp[5]);roadSeg(wp[4],wp[5]);
+// guide roads from each side of the river to the bridge so riders find the crossing
+roadSeg(wp[0],{x:BRIDGE_X-30,y:BRIDGE_Z});roadSeg({x:BRIDGE_X+30,y:BRIDGE_Z},wp[4]);
+ORDER.forEach((k,i)=>{const z=ZONES.find(zz=>zz.key===k);flag(z.pos[0]+8,z.pos[1]+8,z.color);});
+
+/* ---------- RIVER water surface (a long animated plane following the channel) ---------- */
+const water=new THREE.Mesh(new THREE.PlaneGeometry(RIVER_W*2.2,440,1,90),
+  new THREE.MeshStandardMaterial({color:0x2f7fb0,transparent:true,opacity:.82,roughness:.25,metalness:.2}));
+water.rotation.x=-Math.PI/2;
+{ // bend the water plane to follow riverCenterX(z)
+  const p=water.geometry.attributes.position;
+  for(let i=0;i<p.count;i++){const zz=p.getY(i); /* plane local Y maps to world Z */
+    p.setX(i,p.getX(i)+riverCenterX(-zz));}
+  p.needsUpdate=true;water.geometry.computeVertexNormals();
+}
+water.position.set(0,WATER_Y,0);scene.add(water);
+
+/* ---------- BRIDGE across the river (rideable deck at BRIDGE_DECK height) ---------- */
+(function bridge(){
+  const g=new THREE.Group();g.position.set(BRIDGE_X,0,BRIDGE_Z);
+  const spanX=BRIDGE_HALF_X*2+4;        // a bit wider than the water so ramps reach the banks
+  // deck top sits at BRIDGE_DECK
+  const deck=new THREE.Mesh(new THREE.BoxGeometry(spanX,0.5,BRIDGE_HALF_Z*2),
+    new THREE.MeshStandardMaterial({color:0x6b4a2e,roughness:.9}));
+  deck.position.y=BRIDGE_DECK-0.25;deck.castShadow=true;deck.receiveShadow=true;g.add(deck);
+  // support pillars into the water
+  [-spanX*0.32,spanX*0.32].forEach(px=>{const pil=new THREE.Mesh(new THREE.BoxGeometry(0.5,3,0.5),new THREE.MeshStandardMaterial({color:0x4a3320}));pil.position.set(px,-1,0);g.add(pil);});
+  // planks across the deck
+  for(let i=0;i<12;i++){const pl=new THREE.Mesh(new THREE.BoxGeometry(spanX,0.06,BRIDGE_HALF_Z*2/12),
+    new THREE.MeshStandardMaterial({color:i%2?0x7a5836:0x6b4a2e,roughness:1}));pl.position.set(0,BRIDGE_DECK+0.02,-BRIDGE_HALF_Z+i*(BRIDGE_HALF_Z*2/12)+0.1);g.add(pl);}
+  // railings (set back from the riding lane; posts are collidable)
+  [-BRIDGE_HALF_Z+0.2,BRIDGE_HALF_Z-0.2].forEach(rz=>{const rail=new THREE.Mesh(new THREE.BoxGeometry(spanX,0.4,0.14),
+    new THREE.MeshStandardMaterial({color:0x4a3320,roughness:1}));rail.position.set(0,BRIDGE_DECK+0.5,rz);g.add(rail);});
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});scene.add(g);
+})();
+
+/* ---------- HOUSES & SHOP (low-poly village) ---------- */
+function house(x,z,col,rot){
+  if(riverDepth(x,z)>0) return;
+  const g=new THREE.Group();const gy=terrainH(x,z);
+  const w=4+rnd()*2,d=4+rnd()*1.5,h=3+rnd()*1.2;
+  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:col,roughness:.9}));
+  body.position.y=h/2;body.castShadow=true;body.receiveShadow=true;g.add(body);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*0.82,2,4),
+    new THREE.MeshStandardMaterial({color:0x7a3b2e,roughness:1,flatShading:true}));
+  roof.position.y=h+0.9;roof.rotation.y=Math.PI/4;roof.castShadow=true;g.add(roof);
+  const door=new THREE.Mesh(new THREE.BoxGeometry(0.9,1.6,0.1),new THREE.MeshStandardMaterial({color:0x3a2616}));
+  door.position.set(0,0.8,d/2+0.02);g.add(door);
+  const win=new THREE.MeshStandardMaterial({color:0xffe9a8,emissive:0xffd97a,emissiveIntensity:.4});
+  [[-w/3],[w/3]].forEach(([wx])=>{const wm=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.8,0.1),win);wm.position.set(wx,1.6,d/2+0.02);g.add(wm);});
+  g.position.set(x,gy,z);g.rotation.y=rot||0;scene.add(g);
+  addCollider(x,z,Math.max(w,d)*0.6);   // house collision
+}
+function shop(x,z){
+  if(riverDepth(x,z)>0) return;
+  const g=new THREE.Group();const gy=terrainH(x,z);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(7,3.4,5),new THREE.MeshStandardMaterial({color:0xd9c08a,roughness:.85}));
+  body.position.y=1.7;body.castShadow=true;g.add(body);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(7.6,0.4,5.6),new THREE.MeshStandardMaterial({color:0x8a4636,roughness:1}));
+  roof.position.y=3.6;g.add(roof);
+  // striped awning
+  for(let i=0;i<6;i++){const a=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.1,1.4),
+    new THREE.MeshStandardMaterial({color:i%2?0xe0584e:0xf2f2f2,roughness:.8}));a.position.set(-3+i*1.15,2.7,3.0);a.rotation.x=-0.4;g.add(a);}
+  // SHOP sign
+  const c=document.createElement('canvas');c.width=256;c.height=80;const cx2=c.getContext('2d');
+  cx2.fillStyle='#1a1410';cx2.fillRect(0,0,256,80);cx2.fillStyle='#ffd166';cx2.font='bold 46px "Space Grotesk",Arial';cx2.textAlign='center';cx2.fillText('SHOP',128,56);
+  const tex=new THREE.CanvasTexture(c);
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(3,1),new THREE.MeshStandardMaterial({map:tex}));
+  sign.position.set(0,3.0,2.55);g.add(sign);
+  g.position.set(x,gy,z);scene.add(g);
+  addCollider(x,z,4.2);                  // shop collision
+}
+// cluster a small village near the Contact stop (east side)
+const cz=ZONES.find(z=>z.key==='contact');
+const houseCols=[0xcdb89a,0xb98c63,0xd9d2c2,0xa8b0a0,0xc98f6a];
+const villageSpots=[[-18,12],[18,16],[-22,-10],[26,-6],[6,28],[-30,22],[34,24]];
+villageSpots.forEach((o,i)=>house(cz.pos[0]+o[0],cz.pos[1]+o[1],houseCols[i%houseCols.length],rnd()*6.28));
+shop(cz.pos[0]+0,cz.pos[1]-22);
+// a few more houses scattered near skills & projects
+house(ZONES.find(z=>z.key==='skills').pos[0]+20,ZONES.find(z=>z.key==='skills').pos[1]+10,0xcdb89a,0.6);
+house(ZONES.find(z=>z.key==='work').pos[0]-20,ZONES.find(z=>z.key==='work').pos[1]+12,0xb98c63,-0.4);
+
+/* ---------- extra village detail: lamp posts, fences, flower patches ---------- */
+function lampPost(x,z){
+  if(riverDepth(x,z)>0)return;const gy=terrainH(x,z);const g=new THREE.Group();g.position.set(x,gy,z);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,3,8),new THREE.MeshStandardMaterial({color:0x2b2b30,roughness:.7,metalness:.4}));
+  pole.position.y=1.5;pole.castShadow=true;g.add(pole);
+  const arm=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.08,0.08),pole.material);arm.position.set(0.2,3,0);g.add(arm);
+  const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,8),new THREE.MeshStandardMaterial({color:0xffe9a8,emissive:0xffcf6a,emissiveIntensity:.9}));
+  lamp.position.set(0.42,2.96,0);g.add(lamp);
+  const light=new THREE.PointLight(0xffd98a,1.4,14);light.position.copy(lamp.position);g.add(light);
+  scene.add(g);addCollider(x,z,0.7);
+}
+function fence(x1,z1,x2,z2){
+  const dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz),ang=Math.atan2(dx,dz),n=Math.ceil(len/2);
+  const m=new THREE.MeshStandardMaterial({color:0x6b4a2e,roughness:1});
+  for(let i=0;i<=n;i++){const tt=i/n,x=x1+dx*tt,z=z1+dz*tt;if(riverDepth(x,z)>0)continue;
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.12,1,0.12),m);p.position.set(x,terrainH(x,z)+0.5,z);p.castShadow=true;scene.add(p);}
+  // two rails
+  for(const ry of [0.4,0.8]){const rail=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.08,len),m);
+    rail.position.set((x1+x2)/2,terrainH((x1+x2)/2,(z1+z2)/2)+ry,(z1+z2)/2);rail.rotation.y=ang;scene.add(rail);}
+}
+function flowers(x,z){
+  if(riverDepth(x,z)>0)return;const gy=terrainH(x,z);const cols=[0xff6b8a,0xffd166,0xffffff,0x9b6bff];
+  for(let i=0;i<10;i++){const f=new THREE.Mesh(new THREE.SphereGeometry(0.12,6,5),
+    new THREE.MeshStandardMaterial({color:cols[(rnd()*cols.length)|0],roughness:.8}));
+    f.position.set(x+(rnd()-0.5)*3,gy+0.3+rnd()*0.2,z+(rnd()-0.5)*3);scene.add(f);}
+}
+// lamp posts along the bridge approach + near contact village
+[-30,-15,15,30].forEach(o=>lampPost(BRIDGE_X+o,BRIDGE_Z+5));
+villageSpots.forEach((o,i)=>{if(i%2)lampPost(cz.pos[0]+o[0]*0.6,cz.pos[1]+o[1]*0.6);});
+// little fenced yards & flower beds around the village
+fence(cz.pos[0]-40,cz.pos[1]+8,cz.pos[0]-40,cz.pos[1]+34);
+fence(cz.pos[0]+38,cz.pos[1]-4,cz.pos[0]+38,cz.pos[1]+22);
+for(let i=0;i<14;i++){const a=rnd()*6.28,r=20+rnd()*40;flowers(cz.pos[0]+Math.cos(a)*r,cz.pos[1]+Math.sin(a)*r);}
+[ 'about','skills','work','art' ].forEach(k=>{const z=ZONES.find(zz=>zz.key===k);for(let i=0;i<5;i++){const a=rnd()*6.28,r=12+rnd()*14;flowers(z.pos[0]+Math.cos(a)*r,z.pos[1]+Math.sin(a)*r);}});
+
+/* ---------- JUMP RAMPS: ride up the incline and launch off the lip ----------
+   Each ramp is a rideable slope. (bx,bz)=base on the ground, heading points up
+   the ramp; it rises to height H at the lip a distance L ahead.               */
+function ramp(bx,bz,headingDeg,opts={}){
+  const a=headingDeg*Math.PI/180, dx=Math.sin(a), dz=Math.cos(a);
+  const W=opts.W||6, L=opts.L||14, H=opts.H||2.6;   // long & gentle = easy to climb
+  const baseGy=terrainH(bx,bz);
+  const r={bx,bz,dx,dz,W,L,H,baseGy};ramps.push(r);
+  const g=new THREE.Group();g.position.set(bx,baseGy,bz);g.rotation.y=a;
+
+  // --- solid triangular WEDGE (a clean slanted ramp, no box) ---
+  const hw=W/2;
+  // cross-section triangle in y-z: (0,0) base front → (0,L) base back → (H,L) top back
+  const v=new Float32Array([
+    // left face (x=-hw) triangle
+    -hw,0,0,  -hw,0,L,  -hw,H,L,
+    // right face (x=+hw) triangle
+     hw,0,0,   hw,H,L,   hw,0,L,
+    // top slope quad (ride surface): front-low → back-high
+    -hw,0,0,  -hw,H,L,   hw,H,L,
+    -hw,0,0,   hw,H,L,   hw,0,0,
+    // bottom quad (ground)
+    -hw,0,0,   hw,0,0,    hw,0,L,
+    -hw,0,0,   hw,0,L,   -hw,0,L,
+    // back vertical quad (z=L)
+    -hw,0,L,   hw,0,L,    hw,H,L,
+    -hw,0,L,   hw,H,L,   -hw,H,L,
+  ]);
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(v,3));
+  geo.computeVertexNormals();
+  const wedge=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x8a5a32,roughness:.95,side:THREE.DoubleSide}));
+  wedge.castShadow=true;wedge.receiveShadow=true;g.add(wedge);
+
+  // chevron stripes painted up the slope surface
+  const slopeAng=Math.atan2(H,L);
+  for(let i=0;i<6;i++){const tt=(i+0.5)/6;const ch=new THREE.Mesh(new THREE.PlaneGeometry(W*0.7,0.5),
+    new THREE.MeshStandardMaterial({color:i%2?0xffd166:0x2a2a2a,roughness:.8,side:THREE.DoubleSide}));
+    ch.rotation.x=-Math.PI/2+slopeAng;ch.position.set(0,H*tt+0.04,L*tt);g.add(ch);}
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});scene.add(g);
+}
+// project a point onto a ramp → {along (0..L), side, on}
+function rampInfo(r,x,z){
+  const rx=x-r.bx, rz=z-r.bz;
+  const along=rx*r.dx+rz*r.dz;
+  const side=Math.abs(rx*r.dz-rz*r.dx);
+  return {along,side,on:(along>=0&&along<=r.L&&side<r.W/2)};
+}
+// RIVER-CROSSING ramps: placed on each bank, facing across the water so you can
+// launch from one corner to the other. River centre is at riverCenterX(z).
+function riverRamp(z, fromWest){
+  const cxr=riverCenterX(z);
+  const bx=fromWest? cxr-RIVER_W-16 : cxr+RIVER_W+16;  // base set back so the climb starts on flat ground
+  const heading=fromWest? 90 : 270;                    // +x (east) or -x (west)
+  ramp(bx,z,heading,{W:7,L:16,H:3.2});                 // long approach, launches across the water
+}
+riverRamp(-55,true);  riverRamp(-55,false);   // launch pair at the north corner
+riverRamp(70,true);   riverRamp(70,false);    // launch pair at the south corner
+
+/* ===================== CHECKPOINTS ===================== */
+function textSprite(text,hex){
+  const c=document.createElement('canvas');c.width=512;c.height=160;
+  const x=c.getContext('2d');
+  x.font='bold 84px "Space Grotesk",Arial';x.textAlign='center';x.textBaseline='middle';
+  x.fillStyle='#fff';x.shadowColor='#'+hex.toString(16).padStart(6,'0');x.shadowBlur=34;
+  x.fillText(text,256,80);
+  const tex=new THREE.CanvasTexture(c);tex.anisotropy=4;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));
+  sp.scale.set(13,4,1);return sp;
+}
+const zoneMeshes=[];
+ZONES.forEach(z=>{
+  const baseY=terrainH(z.pos[0],z.pos[1]);
+  const g=new THREE.Group();g.position.set(z.pos[0],baseY,z.pos[1]);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(5.5,7,48),
+    new THREE.MeshBasicMaterial({color:z.color,transparent:true,opacity:.6,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2;ring.position.y=0.08;g.add(ring);
+  const disc=new THREE.Mesh(new THREE.CircleGeometry(5.5,48),
+    new THREE.MeshStandardMaterial({color:z.color,transparent:true,opacity:.16,roughness:1}));
+  disc.rotation.x=-Math.PI/2;disc.position.y=0.06;g.add(disc);
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.6,2.6,16,20,1,true),
+    new THREE.MeshBasicMaterial({color:z.color,transparent:true,opacity:.13,side:THREE.DoubleSide,depthWrite:false}));
+  beam.position.y=8;g.add(beam);
+  const crystal=new THREE.Mesh(new THREE.IcosahedronGeometry(1.5,0),
+    new THREE.MeshStandardMaterial({color:z.color,emissive:z.color,emissiveIntensity:.8,metalness:.4,roughness:.15,flatShading:true}));
+  crystal.position.y=8.6;crystal.castShadow=true;g.add(crystal);
+  const label=textSprite(z.title,z.color);label.position.y=12;g.add(label);
+  scene.add(g);
+  z._crystal=crystal;z._ring=ring;zoneMeshes.push(z);
+});
+
+/* ---------- the open-air ART GALLERY (3D framed drawings) ---------- */
+const paintings=[];
+(function buildGallery(){
+  const art=ZONES.find(z=>z.key==='art');
+  const cx=art.pos[0], cz=art.pos[1];
+  const R=30, N=DRAWINGS.length;
+  const frameMat=new THREE.MeshStandardMaterial({color:0x2a2118,roughness:.6,metalness:.2});
+  const MAXW=3.6, MAXH=2.8, CY=3.4; // max frame size, centre height
+  for(let i=0;i<N;i++){
+    const ang=(-1.35)+(2.7)*(i/(N-1)); // arc opening toward the rider (+z side)
+    const px=cx+Math.sin(ang)*R;
+    const pz=cz-Math.cos(ang)*R;
+    const gy=terrainH(px,pz);
+    const g=new THREE.Group();g.position.set(px,gy,pz);
+    g.lookAt(cx,CY,cz+40);             // face the approaching rider (rotate group, not children)
+
+    // posts (added now, repositioned after we know width)
+    const postL=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.12,CY+0.2,8),frameMat);postL.castShadow=true;g.add(postL);
+    const postR=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.12,CY+0.2,8),frameMat);postR.castShadow=true;g.add(postR);
+    postL.position.y=postR.position.y=(CY+0.2)/2;
+    // frame + canvas (sized once the image aspect is known)
+    const frame=new THREE.Mesh(new THREE.BoxGeometry(MAXW+0.3,MAXH+0.3,0.18),frameMat);
+    frame.position.y=CY;frame.castShadow=true;g.add(frame);
+    const mat=new THREE.MeshStandardMaterial({color:0xece4d2,roughness:.9});
+    const canvas=new THREE.Mesh(new THREE.PlaneGeometry(MAXW,MAXH),mat);
+    canvas.position.set(0,CY,0.11);canvas.userData.index=i;
+    g.add(canvas);paintings.push(canvas);
+
+    // fit the WHOLE image inside MAXW×MAXH, then shrink frame+canvas to match aspect
+    const applyTex=tex=>{
+      tex.colorSpace=THREE.SRGBColorSpace;
+      const ia=tex.image.width/tex.image.height;
+      let w=MAXW, h=MAXW/ia; if(h>MAXH){h=MAXH;w=MAXH*ia;}
+      canvas.geometry.dispose();canvas.geometry=new THREE.PlaneGeometry(w,h);
+      frame.geometry.dispose();frame.geometry=new THREE.BoxGeometry(w+0.3,h+0.3,0.18);
+      postL.position.x=-(w/2+0.05);postR.position.x=(w/2+0.05);
+      mat.map=tex;mat.color.set(0xffffff);mat.needsUpdate=true;
+    };
+    loader.load(DRAWINGS[i],applyTex,undefined,()=>{
+      if(DRAWINGS_FALLBACK[i]) loader.load(DRAWINGS_FALLBACK[i],applyTex);
+    });
+    scene.add(g);
+  }
+  // "GALLERY" arch sign at entrance (south side, toward rider)
+  const sign=textSprite('SKETCHBOOK',art.color);
+  sign.position.set(cx,terrainH(cx,cz+24)+7,cz+24);sign.scale.set(16,5,1);scene.add(sign);
+})();
+
+/* welcome billboard at spawn */
+(function(){
+  const c=document.createElement('canvas');c.width=1024;c.height=300;
+  const x=c.getContext('2d');
+  x.fillStyle='#fff';x.font='bold 130px "Space Grotesk",Arial';x.textAlign='center';
+  x.fillText('HARSHA RAI',512,128);
+  x.font='500 46px "JetBrains Mono",monospace';x.fillStyle='#e0a85c';
+  x.fillText('AI ENGINEER — RIDE TO EXPLORE',512,222);
+  const tex=new THREE.CanvasTexture(c);tex.anisotropy=4;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));
+  const bx=ZONES[0].pos[0],bz=ZONES[0].pos[1];
+  sp.scale.set(36,10.5,1);sp.position.set(bx,terrainH(bx,bz)+12,bz+18);scene.add(sp);
+})();
+
+/* ===================== ADVENTURE MOTORCYCLE ===================== */
+const bike=new THREE.Group();scene.add(bike);     // position + yaw
+const tilt=new THREE.Group();bike.add(tilt);      // pitch from terrain slope
+const lean=new THREE.Group();tilt.add(lean);      // roll into turns
+
+// Himalayan "Kaza Brown" — sandy tan/brown bodywork
+// deep teal metallic — glossy premium paint
+const matBody=new THREE.MeshStandardMaterial({color:0x0f7d77,metalness:.7,roughness:.25});
+const matBodyDk=new THREE.MeshStandardMaterial({color:0x0a5450,metalness:.6,roughness:.35});
+const matPlastic=new THREE.MeshStandardMaterial({color:0x18191d,metalness:.1,roughness:.7});
+const matBlack=new THREE.MeshStandardMaterial({color:0x121317,metalness:.2,roughness:.6});
+const matEngine=new THREE.MeshStandardMaterial({color:0x8a8d93,metalness:.9,roughness:.32});
+const matChrome=new THREE.MeshStandardMaterial({color:0xd2d5da,metalness:1,roughness:.16});
+const matGold=new THREE.MeshStandardMaterial({color:0xd8a33a,metalness:.9,roughness:.3}); // fork lowers
+const matTire=new THREE.MeshStandardMaterial({color:0x0e0e10,roughness:.92});
+const matAmber=new THREE.MeshStandardMaterial({color:0xffaa22,emissive:0xff9500,emissiveIntensity:.6});
+
+const WR=0.66;        // wheel radius (big 21"/19" ADV wheels)
+function makeWheel(R){
+  const g=new THREE.Group();
+  // knobby tire (torus + tread blocks)
+  const tire=new THREE.Mesh(new THREE.TorusGeometry(R,0.2,16,34),matTire);tire.rotation.y=Math.PI/2;g.add(tire);
+  for(let i=0;i<22;i++){const k=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.1,0.16),matTire);
+    const a=i/22*Math.PI*2;k.position.set(0,Math.cos(a)*(R+0.02),Math.sin(a)*(R+0.02));k.rotation.x=a;g.add(k);}
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(R*0.62,0.055,12,30),matChrome);rim.rotation.y=Math.PI/2;g.add(rim);
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(R*0.42,R*0.42,0.04,20),matEngine);disc.rotation.z=Math.PI/2;g.add(disc);
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.34,16),matChrome);hub.rotation.z=Math.PI/2;g.add(hub);
+  for(let i=0;i<16;i++){const sp=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,R*1.3,5),matChrome);sp.rotation.x=i/16*Math.PI*2;g.add(sp);}
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true;});return g;
+}
+function tube(x1,y1,z1,x2,y2,z2,r,mat){
+  const a=new THREE.Vector3(x1,y1,z1),b=new THREE.Vector3(x2,y2,z2);
+  const d=b.clone().sub(a),len=d.length();
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,12),mat);
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());
+  m.castShadow=true;lean.add(m);return m;
+}
+
+/* ===== a clean, simple, proper-looking motorcycle =====
+   wheels at z = +1.05 (front) and -1.45 (rear), seat height ~ WR+1.0      */
+const rearWheel=makeWheel(WR);rearWheel.position.set(0,WR,-1.45);lean.add(rearWheel);
+
+// swingarm to rear wheel
+tube(0.12,WR+0.15,-0.4, 0.12,WR,-1.45, 0.06,matBlack);
+tube(-0.12,WR+0.15,-0.4,-0.12,WR,-1.45, 0.06,matBlack);
+
+// engine (compact block, low centre)
+const eng=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.8,0.95),matEngine);
+eng.position.set(0,WR+0.25,-0.15);eng.castShadow=true;lean.add(eng);
+for(let i=0;i<4;i++){const fin=new THREE.Mesh(new THREE.BoxGeometry(0.74,0.05,0.9),matChrome);fin.position.set(0,WR+0.5+i*0.1,-0.1);lean.add(fin);}
+
+// main frame backbone (tank rail) + seat rail
+tube(0,WR+0.95,0.9, 0,WR+0.9,-1.35, 0.07,matBodyDk);
+tube(0,WR+0.4,0.3, 0,WR+0.95,0.95, 0.06,matBodyDk);
+
+// fuel tank — rounded cylinder lying along the bike
+const tank=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,1.1,20),matBody);
+tank.rotation.x=Math.PI/2;tank.scale.set(1.05,1.05,0.8);
+tank.position.set(0,WR+1.12,0.45);tank.castShadow=true;lean.add(tank);
+const tankNose=new THREE.Mesh(new THREE.SphereGeometry(0.42,18,14),matBody);
+tankNose.scale.set(1.05,1.05,0.8);tankNose.position.set(0,WR+1.12,1.0);tankNose.castShadow=true;lean.add(tankNose);
+const cap2=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.06,12),matChrome);cap2.position.set(0,WR+1.5,0.5);lean.add(cap2);
+
+// seat (simple bench)
+const seat=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.18,1.25),matBlack);
+seat.position.set(0,WR+1.08,-0.55);seat.castShadow=true;lean.add(seat);
+const tail=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.16,0.4),matBody);
+tail.position.set(0,WR+1.12,-1.25);tail.castShadow=true;lean.add(tail);
+
+// rear fender + tail light
+const rFender=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.1,0.7),matBlack);rFender.position.set(0,WR+0.55,-1.5);rFender.rotation.x=0.15;lean.add(rFender);
+const tlight=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.1,0.06),new THREE.MeshStandardMaterial({color:0x661010,emissive:0xff2222,emissiveIntensity:.7}));tlight.position.set(0,WR+0.95,-1.46);lean.add(tlight);
+
+// single exhaust along the right side
+const muffler=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.1,1.3,14),matChrome);
+muffler.rotation.x=Math.PI/2;muffler.position.set(0.34,WR+0.35,-0.9);muffler.castShadow=true;lean.add(muffler);
+tube(0.18,WR+0.35,-0.2, 0.34,WR+0.35,-0.5, 0.05,matChrome);
+
+// footpegs
+[[-0.4],[0.4]].forEach(([px])=>{const peg=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.22,8),matChrome);peg.rotation.z=Math.PI/2;peg.position.set(px,WR+0.02,-0.05);lean.add(peg);});
+
+/* ---- front end ---- */
+const steer=new THREE.Group();steer.position.set(0,WR+1.18,0.95);lean.add(steer);
+// fork legs down to the front wheel
+[[-0.2],[0.2]].forEach(([fx])=>{const fork=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,1.5,10),matChrome);
+  fork.position.set(fx,-0.4,0.18);fork.rotation.x=-0.32;fork.castShadow=true;steer.add(fork);});
+const frontWheel=makeWheel(WR);frontWheel.position.set(0,-(WR+1.18)+WR,0.55);steer.add(frontWheel);
+// front fender
+const fFender=new THREE.Mesh(new THREE.BoxGeometry(0.38,0.1,0.8),matBody);fFender.position.set(0,-0.35,0.5);fFender.rotation.x=0.2;fFender.castShadow=true;steer.add(fFender);
+// handlebar + grips
+const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.9,10),matBlack);bar.rotation.z=Math.PI/2;bar.position.set(0,0.28,-0.05);steer.add(bar);
+[[-0.45],[0.45]].forEach(([gx])=>{const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.18,10),matBlack);grip.rotation.z=Math.PI/2;grip.position.set(gx,0.28,-0.05);steer.add(grip);});
+// round headlight (classic)
+const hlBucket=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,0.18,18),matChrome);hlBucket.rotation.x=Math.PI/2;hlBucket.position.set(0,0.12,0.22);steer.add(hlBucket);
+const hlLens=new THREE.Mesh(new THREE.CircleGeometry(0.2,18),new THREE.MeshStandardMaterial({color:0xfff4cc,emissive:0xffe9a8,emissiveIntensity:.8}));hlLens.position.set(0,0.12,0.32);steer.add(hlLens);
+const headlight=new THREE.SpotLight(0xfff3d0,0,46,0.55,0.5,1.2);headlight.position.set(0,0.12,0.34);steer.add(headlight);steer.add(headlight.target);headlight.target.position.set(0,-0.4,6);
+// small instrument
+const dash=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.05,14),matBlack);dash.rotation.x=1.3;dash.position.set(0,0.32,0.12);steer.add(dash);
+
+/* rider — handsome adventurer, properly seated on the bike */
+const rider=new THREE.Group();
+const jacket=new THREE.MeshStandardMaterial({color:0x3a3f5c,roughness:.55,metalness:.15});
+const jacketAcc=new THREE.MeshStandardMaterial({color:0xe07a3c,roughness:.5});
+const skin=new THREE.MeshStandardMaterial({color:0xc98e63,roughness:.6});
+const hairM=new THREE.MeshStandardMaterial({color:0x16110d,roughness:.7});
+const denim=new THREE.MeshStandardMaterial({color:0x26334a,roughness:.8});
+const bootM=new THREE.MeshStandardMaterial({color:0x241a12,roughness:.6});
+const shades=new THREE.MeshStandardMaterial({color:0x0a0a0c,roughness:.15,metalness:.6});
+function limbMesh(x1,y1,z1,x2,y2,z2,r,mat){const a=new THREE.Vector3(x1,y1,z1),b=new THREE.Vector3(x2,y2,z2);const d=b.clone().sub(a),len=d.length();const m=new THREE.Mesh(new THREE.CapsuleGeometry(r,len,6,10),mat);m.position.copy(a).add(b).multiplyScalar(0.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());m.castShadow=true;rider.add(m);}
+
+/* key anchor points (world-space relative to bike) so everything connects:
+   seat top ≈ WR+1.61 (z -0.75) · grips ≈ (±0.52, WR+1.82, 0.95) · pegs ≈ (±0.45, WR-0.05, -0.05) */
+const HIP_Y=WR+1.28, HIP_Z=-0.55;        // pelvis sits on the seat (seat top ~WR+1.17)
+const SHO_Y=WR+1.95, SHO_Z=-0.05;        // shoulders, leaned forward
+const GRIP=[0.45,WR+1.48,0.9];           // where hands grab the bars
+const PEG=[0.4,WR+0.06,-0.05];           // where feet rest on the pegs
+
+// pelvis
+const pelvis=new THREE.Mesh(new THREE.SphereGeometry(0.26,14,12),denim);
+pelvis.scale.set(1.2,0.8,1.0);pelvis.position.set(0,HIP_Y,HIP_Z);pelvis.castShadow=true;rider.add(pelvis);
+// torso: one capsule from hips to shoulders (leaning forward)
+limbMesh(0,HIP_Y+0.05,HIP_Z, 0,SHO_Y,SHO_Z, 0.27, jacket);
+// chest zipper
+const zip=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.6,0.04),new THREE.MeshStandardMaterial({color:0x9aa0b5,metalness:.7,roughness:.3}));
+zip.position.set(0,(HIP_Y+SHO_Y)/2+0.05,(HIP_Z+SHO_Z)/2+0.22);zip.rotation.x=Math.atan2(SHO_Z-HIP_Z,SHO_Y-HIP_Y);rider.add(zip);
+
+// neck + HEAD
+const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.12,0.2,10),skin);neck.position.set(0,SHO_Y+0.14,SHO_Z+0.06);neck.rotation.x=0.25;rider.add(neck);
+const head=new THREE.Group();head.position.set(0,SHO_Y+0.34,SHO_Z+0.14);head.rotation.x=-0.1;rider.add(head);
+const face=new THREE.Mesh(new THREE.SphereGeometry(0.23,20,18),skin);face.scale.set(0.92,1.08,0.95);face.castShadow=true;head.add(face);
+const jaw=new THREE.Mesh(new THREE.SphereGeometry(0.17,14,12),skin);jaw.scale.set(0.95,0.7,0.9);jaw.position.set(0,-0.13,0.02);head.add(jaw);
+const hair=new THREE.Mesh(new THREE.SphereGeometry(0.25,18,16,0,Math.PI*2,0,Math.PI*0.6),hairM);hair.position.set(0,0.05,-0.01);head.add(hair);
+const quiff=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.12,0.18),hairM);quiff.position.set(0,0.19,0.12);quiff.rotation.x=-0.5;head.add(quiff);
+[-0.19,0.19].forEach(hx=>{const sb=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.17,0.12),hairM);sb.position.set(hx,-0.02,0.03);head.add(sb);});
+const glass=new THREE.Mesh(new THREE.BoxGeometry(0.32,0.1,0.06),shades);glass.position.set(0,0.03,0.19);head.add(glass);
+const nose=new THREE.Mesh(new THREE.ConeGeometry(0.04,0.11,8),skin);nose.rotation.x=Math.PI/2;nose.position.set(0,-0.04,0.22);head.add(nose);
+
+// arms: shoulder → elbow → grip (bent elbow)
+[-1,1].forEach(s=>{
+  const shp=[s*0.28,SHO_Y,SHO_Z], elb=[s*0.46,SHO_Y-0.34,SHO_Z+0.45], grp=[s*GRIP[0],GRIP[1],GRIP[2]];
+  limbMesh(shp[0],shp[1],shp[2], elb[0],elb[1],elb[2], 0.1, jacket);     // upper arm
+  limbMesh(elb[0],elb[1],elb[2], grp[0],grp[1],grp[2], 0.085, jacket);   // forearm
+  const glove=new THREE.Mesh(new THREE.SphereGeometry(0.1,10,8),bootM);glove.position.set(grp[0],grp[1],grp[2]);rider.add(glove);
+});
+// legs: hip → knee (forward) → foot at peg (bent knee)
+[-1,1].forEach(s=>{
+  const hip=[s*0.2,HIP_Y-0.1,HIP_Z], knee=[s*0.5,WR+0.95,0.5], foot=[s*PEG[0],PEG[1],PEG[2]];
+  limbMesh(hip[0],hip[1],hip[2], knee[0],knee[1],knee[2], 0.15, denim);  // thigh
+  limbMesh(knee[0],knee[1],knee[2], foot[0],foot[1],foot[2], 0.12, denim); // shin
+  const boot=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.16,0.36),bootM);boot.position.set(foot[0],foot[1]+0.04,foot[2]+0.08);boot.castShadow=true;rider.add(boot);
+});
+lean.add(rider);
+
+const blob=new THREE.Mesh(new THREE.CircleGeometry(1.8,28),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.28}));
+blob.rotation.x=-Math.PI/2;blob.position.y=0.04;bike.add(blob);
+
+/* ---------- optional: load a REAL bike model ----------
+   To use a real .glb motorcycle, set BIKE_MODEL_URL to its address and it will
+   replace the hand-built bike. Disabled by default so we don't waste a failed
+   network request on every load (keeps startup fast).                         */
+const BIKE_MODEL_URL=null; // e.g. 'https://.../bike.glb'
+if(BIKE_MODEL_URL){
+  import('three/addons/loaders/GLTFLoader.js').then(({GLTFLoader})=>{
+    new GLTFLoader().load(BIKE_MODEL_URL,gltf=>{
+      const m=gltf.scene;
+      const box=new THREE.Box3().setFromObject(m);const size=new THREE.Vector3();box.getSize(size);
+      m.scale.setScalar(3.6/Math.max(size.x,size.z));
+      m.position.y-=new THREE.Box3().setFromObject(m).min.y;
+      m.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+      lean.clear();lean.add(m);
+    });
+  });
+}
+
+/* ---------- dust particles ---------- */
+const dustTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');
+  const grad=g.createRadialGradient(32,32,0,32,32,32);grad.addColorStop(0,'rgba(200,180,150,.9)');grad.addColorStop(1,'rgba(200,180,150,0)');
+  g.fillStyle=grad;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);})();
+const dust=[];
+for(let i=0;i<26;i++){
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:dustTex,transparent:true,opacity:0,depthWrite:false}));
+  s.scale.setScalar(0.5);s.userData={life:0};scene.add(s);dust.push(s);
+}
+let dustIdx=0;
+function emitDust(x,y,z){
+  const s=dust[dustIdx++%dust.length];
+  s.position.set(x+(rnd()-0.5),y+0.2,z+(rnd()-0.5));
+  s.userData.life=1;s.userData.vy=0.02+rnd()*0.02;s.scale.setScalar(0.5);
+  s.material.opacity=0.5;
+}
+
+/* ===================== STATE & INPUT ===================== */
+// spawn at BASE CAMP, facing the summit (uphill)
+const SPAWN=ZONES[0].pos;
+let heading=Math.atan2(-SPAWN[0],-SPAWN[1]); // point toward (0,0) summit
+let speed=0, leanAngle=0, steerAngle=0, pitch=0, bikeY=terrainH(SPAWN[0],SPAWN[1]);
+let vy=0, airborne=false;   // jump physics
+bike.position.set(SPAWN[0],bikeY,SPAWN[1]);bike.rotation.y=heading;
+const MAXF=0.5,MAXR=-0.22,ACC=0.0075,FRIC=0.96,TURN=0.03,MAXLEAN=0.4;
+
+const keys={};let lbOpen=false;
+const km={ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right'};
+addEventListener('keydown',e=>{
+  if(lbOpen){if(e.key==='ArrowLeft')lbStep(-1);else if(e.key==='ArrowRight')lbStep(1);else if(e.key==='Escape')closeLightbox();e.preventDefault();return;}
+  if(km[e.code]){keys[km[e.code]]=true;if(e.code.startsWith('Arrow'))e.preventDefault();}
+});
+addEventListener('keyup',e=>{if(km[e.code])keys[km[e.code]]=false;});
+document.querySelectorAll('#touch button').forEach(b=>{
+  const k=b.dataset.k;const on=e=>{e.preventDefault();keys[k]=true;},off=e=>{e.preventDefault();keys[k]=false;};
+  b.addEventListener('touchstart',on,{passive:false});b.addEventListener('touchend',off,{passive:false});
+  b.addEventListener('mousedown',on);b.addEventListener('mouseup',off);b.addEventListener('mouseleave',off);
+});
+
+/* ---------- free-orbit camera control (drag to look, scroll to zoom) ---------- */
+const cam={yaw:0,pitch:0.32,dist:15,userYaw:0,userPitch:0,manual:0};
+let dragging=false,lastX=0,lastY=0;
+const cv3d=()=>renderer.domElement;
+renderer.domElement.addEventListener('pointerdown',e=>{
+  if(!started||lbOpen)return;dragging=true;lastX=e.clientX;lastY=e.clientY;cv3d().setPointerCapture?.(e.pointerId);
+});
+addEventListener('pointermove',e=>{
+  if(!dragging)return;
+  cam.userYaw-=(e.clientX-lastX)*0.006;
+  cam.userPitch=Math.max(-0.3,Math.min(1.1,cam.userPitch-(e.clientY-lastY)*0.005));
+  lastX=e.clientX;lastY=e.clientY;cam.manual=1;
+});
+addEventListener('pointerup',()=>{dragging=false;});
+renderer.domElement.addEventListener('wheel',e=>{
+  if(!started)return;e.preventDefault();
+  cam.dist=Math.max(6,Math.min(40,cam.dist+e.deltaY*0.02));
+},{passive:false});
+// double-click recenters to chase
+renderer.domElement.addEventListener('dblclick',()=>{cam.userYaw=0;cam.userPitch=0;cam.manual=0;cam.dist=15;});
+
+/* ---------- lightbox ---------- */
+const lb=document.getElementById('lightbox'),lbImg=document.getElementById('lbImg'),lbCount=document.getElementById('lbCount');
+let lbCur=0;
+window.openLightbox=function(i){lbCur=(i+DRAWINGS.length)%DRAWINGS.length;
+  lbImg.onerror=()=>{lbImg.onerror=null;if(DRAWINGS_FALLBACK[lbCur])lbImg.src=DRAWINGS_FALLBACK[lbCur];};
+  lbImg.src=DRAWINGS[lbCur];lbCount.textContent=(lbCur+1)+' / '+DRAWINGS.length;lb.classList.add('show');lbOpen=true;};
+function lbStep(d){window.openLightbox(lbCur+d);}
+function closeLightbox(){lb.classList.remove('show');lbOpen=false;}
+document.getElementById('lbClose').onclick=closeLightbox;
+document.getElementById('lbPrev').onclick=()=>lbStep(-1);
+document.getElementById('lbNext').onclick=()=>lbStep(1);
+lb.addEventListener('click',e=>{if(e.target===lb)closeLightbox();});
+
+/* click paintings in 3D to open (only on a clean click, not a look-around drag) */
+const ray=new THREE.Raycaster();const ndc=new THREE.Vector2();
+let downX=0,downY=0;
+renderer.domElement.addEventListener('pointerdown',e=>{downX=e.clientX;downY=e.clientY;});
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!started||lbOpen)return;
+  if(Math.hypot(e.clientX-downX,e.clientY-downY)>6)return; // it was a drag
+  ndc.x=(e.clientX/innerWidth)*2-1;ndc.y=-(e.clientY/innerHeight)*2+1;
+  ray.setFromCamera(ndc,camera);
+  const hit=ray.intersectObjects(paintings,false)[0];
+  if(hit&&hit.distance<70)window.openLightbox(hit.object.userData.index);
+});
+
+/* ===================== UI ===================== */
+const panel=document.getElementById('panel');
+const approach=document.getElementById('approach');
+let activeZone=null;
+function setZone(z){
+  if(z===activeZone)return;activeZone=z;
+  if(z){
+    panel.innerHTML=z.html+(z.key==='art'||z.key==='contact'?'':'<div class="hintline">// ride away to dismiss</div>');
+    panel.classList.add('show');approach.classList.remove('show');
+    if(z.key==='contact') wireFeedbackForm();
+  }
+  else panel.classList.remove('show');
+}
+// AJAX-submit the feedback form so it emails without leaving the page
+function wireFeedbackForm(){
+  const form=panel.querySelector('.fbform');if(!form)return;
+  const note=form.querySelector('.fbnote'), btn=form.querySelector('button');
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();
+    if(form.action.includes('YOUR_FORM_ID')){note.className='fbnote err';note.textContent='Form not set up yet — add your Formspree ID.';return;}
+    const who=(form.querySelector('[name=name]')||{}).value||'';
+    btn.disabled=true;note.className='fbnote';note.textContent='Sending…';
+    try{
+      const r=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'Accept':'application/json'}});
+      if(r.ok){
+        // replace the form with a clear confirmation
+        form.innerHTML='<div class="fbsuccess">✓ Message sent!<span>Thanks'+(who?', '+who.replace(/[<>]/g,''):'')+' — I will get back to you soon.</span></div>';
+      }else{note.className='fbnote err';note.textContent='Could not send — try emailing me directly.';btn.disabled=false;}
+    }catch(err){note.className='fbnote err';note.textContent='Network error — try again.';btn.disabled=false;}
+  });
+  // stop driving keys from firing while typing
+  form.querySelectorAll('input,textarea').forEach(el=>{
+    el.addEventListener('keydown',ev=>ev.stopPropagation());
+    el.addEventListener('keyup',ev=>ev.stopPropagation());
+  });
+}
+const kmhEl=document.getElementById('kmh'),gearEl=document.getElementById('gear'),arcEl=document.getElementById('speedArc');
+const ARC=327;
+
+/* minimap — topographic: contour rings (elevation) + spiral route + summit */
+const mcv=document.getElementById('miniCv'),mctx=mcv.getContext('2d');
+const MR=RMAX;
+function drawMini(){
+  const w=mcv.width;mctx.clearRect(0,0,w,w);
+  const cx=w/2,cy=w/2,sc=(w/2-10)/MR;
+  // contour rings
+  mctx.strokeStyle='rgba(255,255,255,.10)';mctx.lineWidth=2;
+  for(let r=0.25;r<=1;r+=0.25){mctx.beginPath();mctx.arc(cx,cy,MR*r*sc,0,7);mctx.stroke();}
+  // route polyline through checkpoints in climb order
+  mctx.strokeStyle='rgba(255,224,138,.5)';mctx.lineWidth=2;mctx.beginPath();
+  wp.forEach((p,i)=>{const X=cx+p.x*sc,Y=cy+p.y*sc;i?mctx.lineTo(X,Y):mctx.moveTo(X,Y);});mctx.stroke();
+  zoneMeshes.forEach(z=>{
+    mctx.fillStyle='#'+z.color.toString(16).padStart(6,'0');
+    mctx.beginPath();mctx.arc(cx+z.pos[0]*sc,cy+z.pos[1]*sc,z.key==='contact'?7:5,0,7);mctx.fill();
+  });
+  const bx=cx+bike.position.x*sc,by=cy+bike.position.z*sc;
+  mctx.save();mctx.translate(bx,by);mctx.rotate(-heading+Math.PI);
+  mctx.fillStyle='#fff';mctx.beginPath();mctx.moveTo(0,-8);mctx.lineTo(5,6);mctx.lineTo(-5,6);mctx.closePath();mctx.fill();
+  mctx.restore();
+}
+
+/* ===================== ROYAL ENFIELD THUMP (Web Audio synth) =====================
+   A single-cylinder 4-stroke fires once every 2 crank revolutions. We model that
+   as a periodic "thump": a pitched body tone whose amplitude is pulsed by a
+   firing envelope, plus a noisy combustion crack and a deep sub. RPM scales the
+   firing rate and pitch, so idle = lazy "dug-dug-dug", throttle = fast bark.    */
+let AC=null;
+const Engine=(()=>{
+  let ctx,master,comp,started=false,muted=false;
+  let body,bodyGain,sub,subGain,crackSrc,crackGain,crackBP;
+  let fireOsc,fireGain;     // firing-rate LFO that pulses amplitude
+  let rpm=0.1;
+  function init(){
+    if(ctx)return;
+    ctx=AC=new (window.AudioContext||window.webkitAudioContext)();
+    master=ctx.createGain();master.gain.value=0;
+    comp=ctx.createDynamicsCompressor();comp.threshold.value=-18;comp.ratio.value=6;
+    master.connect(comp).connect(ctx.destination);
+
+    // ---- firing envelope: a unipolar pulse at the firing frequency ----
+    // We make a custom periodic pulse using a low oscillator shaped by a waveshaper.
+    fireOsc=ctx.createOscillator();fireOsc.type='sawtooth';
+    const shaper=ctx.createWaveShaper();
+    const cv=new Float32Array(256);
+    for(let i=0;i<256;i++){const x=i/255;cv[i]=Math.pow(Math.max(0,Math.sin(x*Math.PI)),3.0);} // sharp thumps
+    shaper.curve=cv;
+    fireGain=ctx.createGain();fireGain.gain.value=1;
+    fireOsc.connect(shaper).connect(fireGain);
+
+    // ---- engine body tone (pitched), amplitude-modulated by firing pulse ----
+    body=ctx.createOscillator();body.type='sawtooth';
+    const bodyLP=ctx.createBiquadFilter();bodyLP.type='lowpass';bodyLP.frequency.value=1200;bodyLP.Q.value=1.2;
+    bodyGain=ctx.createGain();bodyGain.gain.value=0;            // driven by fireGain
+    fireGain.connect(bodyGain.gain);
+    body.connect(bodyLP).connect(bodyGain).connect(master);
+
+    // ---- deep sub thump ----
+    sub=ctx.createOscillator();sub.type='sine';
+    subGain=ctx.createGain();subGain.gain.value=0;
+    const subFire=ctx.createGain();subFire.gain.value=0.9;fireGain.connect(subFire).connect(subGain.gain);
+    sub.connect(subGain).connect(master);
+
+    // ---- combustion crack (filtered noise burst per firing) ----
+    const buf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);
+    const dt=buf.getChannelData(0);for(let i=0;i<dt.length;i++)dt[i]=Math.random()*2-1;
+    crackSrc=ctx.createBufferSource();crackSrc.buffer=buf;crackSrc.loop=true;
+    crackBP=ctx.createBiquadFilter();crackBP.type='bandpass';crackBP.frequency.value=1600;crackBP.Q.value=0.9;
+    crackGain=ctx.createGain();crackGain.gain.value=0;
+    const crackFire=ctx.createGain();crackFire.gain.value=0.5;fireGain.connect(crackFire).connect(crackGain.gain);
+    crackSrc.connect(crackBP).connect(crackGain).connect(master);
+
+    fireOsc.start();body.start();sub.start();crackSrc.start();
+    started=true;
+  }
+  function setRPM(target,load){
+    if(!ctx)return;
+    rpm+=(target-rpm)*0.1;
+    const now=ctx.currentTime;
+    // single-cylinder firing rate: idle ~7/s lazy thump → ~40/s under revs
+    fireOsc.frequency.setTargetAtTime(7+rpm*33,now,0.05);
+    // pitch & timbre track rpm
+    body.frequency.setTargetAtTime(68+rpm*120,now,0.05);
+    sub.frequency.setTargetAtTime(40+rpm*42,now,0.06);
+    crackBP.frequency.setTargetAtTime(1100+rpm*2400,now,0.05);
+    // overall loudness: quiet idle, swells with revs + throttle (less annoying)
+    master.gain.setTargetAtTime(muted?0:(0.02+rpm*0.34+load*0.18),now,0.1);
+  }
+  function resume(){init();if(ctx&&ctx.state==='suspended')ctx.resume();}
+  function setMuted(m){muted=m;if(ctx)master.gain.setTargetAtTime(m?0:0.02,ctx.currentTime,0.1);}
+  return {init,resume,setRPM,setMuted,get muted(){return muted;},get on(){return started;}};
+})();
+
+/* ===================== NATURE AMBIENCE ===================== */
+const Ambience=window.Ambience=(()=>{
+  let ctx,master,started=false,muted=false;
+  function init(){
+    ctx=AC||(AC=new (window.AudioContext||window.webkitAudioContext)());
+    master=ctx.createGain();master.gain.value=0;master.connect(ctx.destination);
+    // wind: brown-ish noise through a slow-moving low-pass
+    const buf=ctx.createBuffer(1,ctx.sampleRate*3,ctx.sampleRate);
+    const d=buf.getChannelData(0);let last=0;
+    for(let i=0;i<d.length;i++){const w=Math.random()*2-1;last=(last+0.02*w)/1.02;d[i]=last*3.2;}
+    const wind=ctx.createBufferSource();wind.buffer=buf;wind.loop=true;
+    const wlp=ctx.createBiquadFilter();wlp.type='lowpass';wlp.frequency.value=500;
+    const wg=ctx.createGain();wg.gain.value=0.5;
+    wind.connect(wlp).connect(wg).connect(master);
+    // slow LFO on wind volume for gusts
+    const lfo=ctx.createOscillator();lfo.frequency.value=0.08;const lfoG=ctx.createGain();lfoG.gain.value=0.25;
+    lfo.connect(lfoG).connect(wg.gain);lfo.start();
+    // occasional bird chirps
+    function chirp(){
+      if(!ctx||muted){schedule();return;}
+      const o=ctx.createOscillator();o.type='sine';
+      const g=ctx.createGain();g.gain.value=0;
+      const f0=2200+Math.random()*1600;const now=ctx.currentTime;
+      o.frequency.setValueAtTime(f0,now);o.frequency.linearRampToValueAtTime(f0*1.4,now+0.08);
+      o.frequency.linearRampToValueAtTime(f0*0.9,now+0.16);
+      g.gain.linearRampToValueAtTime(0.06,now+0.02);g.gain.linearRampToValueAtTime(0,now+0.18);
+      o.connect(g).connect(master);o.start(now);o.stop(now+0.2);
+      // sometimes a quick double chirp
+      if(Math.random()>0.5){const o2=ctx.createOscillator();o2.type='sine';const g2=ctx.createGain();g2.gain.value=0;
+        o2.frequency.setValueAtTime(f0*1.1,now+0.22);g2.gain.linearRampToValueAtTime(0.05,now+0.24);g2.gain.linearRampToValueAtTime(0,now+0.38);
+        o2.connect(g2).connect(master);o2.start(now+0.22);o2.stop(now+0.4);}
+      schedule();
+    }
+    function schedule(){setTimeout(chirp,1200+Math.random()*4000);}
+    wind.start();schedule();
+    started=true;
+  }
+  function start(){init();if(ctx&&ctx.state==='suspended')ctx.resume();master.gain.setTargetAtTime(muted?0:0.4,ctx.currentTime,1.2);}
+  function setMuted(m){muted=m;if(ctx)master.gain.setTargetAtTime(m?0:0.4,ctx.currentTime,0.4);}
+  return {start,setMuted,get muted(){return muted;},get on(){return started;}};
+})();
+
+/* ===================== LOOP ===================== */
+let started=false,t=0;
+function animate(){
+  requestAnimationFrame(animate);t+=0.016;
+
+  if(started){
+    if(keys.up)speed+=ACC;
+    else if(keys.down)speed-=ACC*1.3;
+    else speed*=FRIC;
+    speed=Math.max(MAXR,Math.min(MAXF,speed));
+    if(Math.abs(speed)<0.003)speed=0;
+
+    const dir=(keys.left?1:0)-(keys.right?1:0);
+    const turning=Math.abs(speed)>0.01?dir:0;
+    heading+=turning*TURN*(speed>=0?1:-1)*Math.min(1,Math.abs(speed)/MAXF+0.3);
+
+    leanAngle+=(turning*MAXLEAN*Math.min(1,Math.abs(speed)/MAXF) - leanAngle)*0.12;
+    steerAngle+=(dir*0.35 - steerAngle)*0.2;
+    lean.rotation.z=leanAngle;
+    steer.rotation.y=steerAngle;
+
+    const fx=Math.sin(heading),fz=Math.cos(heading);
+    bike.position.x+=fx*speed;bike.position.z+=fz*speed;
+
+    rearWheel.rotation.x+=speed*1.6;frontWheel.rotation.x+=speed*1.6;
+
+    // boundary
+    const d=Math.hypot(bike.position.x,bike.position.z);
+    if(d>RMAX-6){const k=(RMAX-6)/d;bike.position.x*=k;bike.position.z*=k;speed*=-0.3;}
+    // solid-object collisions (houses, trees, rocks, shop) — no pass-through
+    for(const c of colliders){
+      const dx=bike.position.x-c.x,dz=bike.position.z-c.z,dd=Math.hypot(dx,dz)||0.001;
+      if(dd<c.r){const n=c.r/dd;bike.position.x=c.x+dx*n;bike.position.z=c.z+dz*n;speed*=-0.25;}
+    }
+    // river barrier: cross via the bridge OR jump it — only blocks when on the ground
+    if(!airborne && !onBridge(bike.position.x,bike.position.z) && riverDepth(bike.position.x,bike.position.z)>0.5){
+      const cxr=riverCenterX(bike.position.z);
+      bike.position.x += (bike.position.x>cxr?1:-1)*0.6;   // shove toward the near bank
+      speed*=-0.3;
+    }
+    bike.rotation.y=heading;
+
+    // ---- ramps: climb the incline, then launch off the lip into a smooth arc ----
+    const GRAV=0.011;                                // gravity per frame
+    const gy=groundHeightAt(bike.position.x,bike.position.z);
+    if(airborne){
+      vy-=GRAV;                                      // projectile fall
+      bikeY+=vy;
+      const land=groundHeightAt(bike.position.x,bike.position.z);
+      if(bikeY<=land){                               // touchdown
+        bikeY=land; airborne=false;
+        if(vy<-0.12 && Math.abs(speed)>0.15) emitDust(bike.position.x,land,bike.position.z);
+        vy=0;
+      }
+      bike.position.y=bikeY;
+      // pitch follows the arc: nose up while rising, level at apex, nose down falling — eased so it's smooth
+      pitch+=(Math.max(-0.55,Math.min(0.55,-vy*1.3))-pitch)*0.08;
+      tilt.rotation.x=pitch;
+    }else{
+      // glue smoothly to the ground / ramp surface (higher factor = tighter follow on the slope)
+      bikeY+=(gy-bikeY)*0.45;bike.position.y=bikeY;
+      // launch off a ramp lip when riding up it with enough speed
+      for(const rp of ramps){
+        const info=rampInfo(rp,bike.position.x,bike.position.z);
+        const align=fx*rp.dx+fz*rp.dz;              // heading up the ramp?
+        if(info.on && info.along>rp.L*0.88 && align>0.6 && speed>0.2){
+          airborne=true;
+          // realistic takeoff: vertical speed = forward speed × ramp gradient, plus a small pop
+          vy=speed*(rp.H/rp.L)*3.4 + 0.12;
+          break;
+        }
+      }
+      const hF=groundHeightAt(bike.position.x+fx*2.2,bike.position.z+fz*2.2);
+      const hB=groundHeightAt(bike.position.x-fx*2.2,bike.position.z-fz*2.2);
+      const pTarget=Math.max(-0.5,Math.min(0.5,(hB-hF)*0.16));
+      pitch+=(pTarget-pitch)*0.12;tilt.rotation.x=pitch;
+    }
+
+    // kick up dust when moving on the dirt
+    if(Math.abs(speed)>0.18 && t%0.05<0.017) emitDust(bike.position.x-fx*1.6,gy,bike.position.z-fz*1.6);
+
+    // zone proximity
+    let near=null,nearest=null,best=8,bd=16;
+    for(const z of zoneMeshes){
+      const dd=Math.hypot(bike.position.x-z.pos[0],bike.position.z-z.pos[1]);
+      const reach=z.key==='art'?12:8;
+      if(dd<reach&&dd<best+ (z.key==='art'?4:0)){if(dd<best||z.key==='art'){best=dd;near=z;}}
+      if(dd<bd){bd=dd;nearest=z;}
+    }
+    setZone(near);
+    if(!near&&nearest){approach.textContent='▸ '+nearest.title+' ahead';approach.classList.add('show');}
+    else if(!near)approach.classList.remove('show');
+
+    // speedo
+    const kmh=Math.round(Math.abs(speed)/MAXF*140);
+    kmhEl.textContent=kmh;
+    arcEl.setAttribute('stroke-dasharray',(Math.abs(speed)/MAXF*ARC*0.75)+' '+ARC);
+    gearEl.textContent=speed<-0.01?'REVERSE':kmh===0?'NEUTRAL':kmh<35?'1ST':kmh<70?'2ND':kmh<105?'3RD':'4TH';
+    drawMini();
+
+    // engine sound: idle + rev with speed, extra blip when throttle held
+    const throttle=keys.up?1:keys.down?0.6:0;
+    const revInGear=Math.abs(speed)/MAXF;            // 0..1 from road speed
+    const rpmTarget=0.05 + revInGear*0.75 + throttle*0.25;  // low idle floor + speed + throttle
+    Engine.setRPM(Math.min(1,rpmTarget),throttle);
+  }else{
+    Engine.setRPM(0.04,0); // quiet idle while paused/intro
+  }
+
+  // dust update
+  for(const s of dust){
+    if(s.userData.life>0){
+      s.userData.life-=0.02;s.position.y+=s.userData.vy;
+      s.scale.setScalar(0.5+(1-s.userData.life)*1.6);
+      s.material.opacity=Math.max(0,s.userData.life*0.5);
+    }
+  }
+
+  // checkpoints
+  for(const z of zoneMeshes){
+    z._crystal.rotation.y+=0.02;z._crystal.rotation.x+=0.008;
+    z._crystal.position.y=8.6+Math.sin(t*1.5+z.pos[0])*0.4;
+    z._ring.scale.setScalar(1+Math.sin(t*2+z.pos[1])*0.07);
+    if(z._fire) z._fire.intensity=3.2+Math.sin(t*12+z.pos[0])*1.4; // campfire flicker
+  }
+
+  // orbit + chase camera (terrain-aware). userYaw/Pitch let you look around;
+  // they ease back to the chase view when you drive (unless you're dragging).
+  if(!dragging && (keys.up||keys.down||keys.left||keys.right)){
+    cam.userYaw*=0.96;cam.userPitch*=0.96;if(Math.abs(cam.userYaw)<0.01)cam.manual=0;
+  }
+  const camYaw=heading+Math.PI+cam.userYaw;
+  const camPitch=cam.pitch+cam.userPitch;
+  const horiz=Math.cos(camPitch)*cam.dist, vert=Math.sin(camPitch)*cam.dist;
+  const tx=bike.position.x+Math.sin(camYaw)*horiz;
+  const tz=bike.position.z+Math.cos(camYaw)*horiz;
+  const ty=bikeY+vert+2.0;
+  camera.position.x+=(tx-camera.position.x)*0.10;
+  camera.position.z+=(tz-camera.position.z)*0.10;
+  camera.position.y+=(Math.max(ty,terrainH(camera.position.x,camera.position.z)+2)-camera.position.y)*0.10;
+  camera.lookAt(bike.position.x,bikeY+1.9,bike.position.z);
+
+  renderer.render(scene,camera);
+}
+animate();
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+/* ===================== INTRO ===================== */
+// hide the loader as soon as the first frame has actually rendered (no fixed delay)
+requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  const l=document.getElementById('loader');if(!l)return;
+  l.style.transition='opacity .4s';l.style.opacity=0;
+  setTimeout(()=>l.style.display='none',400);
+}));
+document.getElementById('startBtn').addEventListener('click',()=>{
+  document.getElementById('intro').classList.add('hide');started=true;
+  headlight.intensity=2.0;               // running lights on
+  Engine.resume();                       // start engine audio on user gesture
+  Engine.setRPM(0.75,1);setTimeout(()=>Engine.setRPM(0.12,0),300);  // ignition blip
+  if(window.Ambience)Ambience.start();   // nature sound
+});
+// resume audio if tab/window regains focus
+addEventListener('pointerdown',()=>{if(started)Engine.resume();},{once:false});
+
+/* mute toggle (engine + ambience together) */
+const muteBtn=document.getElementById('muteBtn');
+muteBtn.addEventListener('click',()=>{
+  const m=!Engine.muted;
+  Engine.setMuted(m);Ambience.setMuted(m);
+  muteBtn.textContent=m?'🔇':'🔊';
+});
+</script>
+</body>
+</html>
