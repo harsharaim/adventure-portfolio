@@ -147,7 +147,13 @@ canvas{display:block}
 #touch .up{background:rgba(25,160,120,.55);font-size:.95rem}
 #touch .up:active{background:rgba(25,200,150,.8)}
 #touch .dn{width:clamp(48px,14vw,60px);height:clamp(48px,14vw,60px);font-size:1.3rem}
-@media(hover:none) and (pointer:coarse){#touch{display:block}.hud-pill{display:none}}
+/* any-pointer:coarse catches Samsung S-Pen devices (hover:none alone misses them) */
+@media(any-pointer:coarse),(hover:none){
+  #touch{display:block}
+  .hud-pill{display:none}
+  .desktop-hint{display:none!important}
+  .touch-hint{display:block!important}
+}
 
 #muteBtn{position:fixed;right:22px;top:64px;z-index:10;width:40px;height:40px;border-radius:50%;cursor:pointer;
   background:rgba(10,10,16,.5);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:1rem;transition:.2s}
@@ -188,7 +194,8 @@ canvas{display:block}
     <h1 class="d3">Harsha&nbsp;Rai</h1>
     <p class="desc">AI Engineer. Hop on the bike and ride through my world to explore.</p>
     <button id="startBtn">Start the Ride →</button>
-    <div class="keyhint">drive with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · drag to look around</div>
+    <div class="keyhint desktop-hint">drive with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · drag to look around</div>
+    <div class="keyhint touch-hint" style="display:none">use on-screen buttons to ride · drag to look around</div>
   </div>
 
   <div class="loader" id="loader"><div class="bar"><i></i></div><span>LOADING THE WORLD…</span></div>
@@ -1538,6 +1545,14 @@ document.getElementById('startBtn').addEventListener('click',()=>{
 });
 // resume audio if tab/window regains focus
 addEventListener('pointerdown',()=>{if(started)Engine.resume();},{once:false});
+
+/* show touch controls on first actual touch (catches Samsung S-Pen / unusual UA strings) */
+document.addEventListener('touchstart',()=>{
+  document.getElementById('touch').style.display='block';
+  document.querySelector('.hud-pill')?.style.setProperty('display','none');
+  document.querySelector('.desktop-hint')?.style.setProperty('display','none');
+  document.querySelector('.touch-hint')?.style.setProperty('display','block');
+},{once:true,passive:true});
 
 /* mute toggle (engine + ambience together) */
 const muteBtn=document.getElementById('muteBtn');
